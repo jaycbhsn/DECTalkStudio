@@ -1,0 +1,1511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>DECtalk Studio</title>
+<style>
+:root{
+  --chrome:#20242C; --ink:#171A20; --rule:#2C313B; --rule2:#383E4A;
+  --putty:#E4DECF; --dim:#8B909B; --maroon:#A3263A; --maroon2:#C23A50;
+  --font:"Roboto Condensed","sans-serif-condensed","Arial Narrow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--putty);font-family:var(--font);font-size:15px;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{white-space:nowrap;background:var(--rule);border:0;border-radius:6px;padding:0 12px;height:36px;min-width:36px;cursor:pointer}
+button:active{filter:brightness(1.3)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--putty);outline-offset:1px}
+button.on{background:var(--putty);color:var(--ink)}
+input[type=number],input[type=text],select,textarea{background:var(--ink);border:1px solid var(--rule2);border-radius:6px;height:36px;padding:0 8px}
+textarea{height:auto;padding:8px;width:100%;resize:vertical}
+
+/* transport */
+#bar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--chrome);border-bottom:1px solid var(--rule);flex-wrap:wrap;row-gap:6px}
+#transport{display:flex;align-items:center;gap:6px}
+@media (max-width:620px){#brand{flex:1;order:0}.tabs{order:1}#menuBtn{order:2}#transport{order:3;width:100%}#bar .spacer{display:none}}
+#brand{font-weight:700;letter-spacing:.02em;white-space:nowrap;margin-right:4px;display:flex;align-items:center;gap:6px}
+#play{background:var(--maroon);width:48px}
+#play.playing{background:var(--maroon2)}
+#pos{font-variant-numeric:tabular-nums;min-width:62px;text-align:center;font-size:17px}
+#bpm{width:64px}
+.lbl{color:var(--dim);font-size:13px}
+.spacer{flex:1}
+.tabs{display:flex;background:var(--ink);border-radius:8px;padding:2px}
+.tabs button{background:transparent;height:32px}
+.tabs button.on{background:var(--rule2);color:var(--putty)}
+
+main{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;flex-direction:column}
+.view.show{display:flex}
+
+/* song view */
+#songWrap{flex:1;display:flex;min-height:0;position:relative}
+#heads{width:128px;flex:none;overflow:hidden;background:var(--chrome);border-right:1px solid var(--rule)}
+#headsInner{will-change:transform}
+#lanes{flex:1;position:relative;overflow:hidden;touch-action:none}
+/* vertical scroll bars (Song: singers; Notes: pitch) */
+.vbar{position:absolute;top:24px;right:0;bottom:0;width:12px;background:rgba(255,255,255,.035);z-index:3;touch-action:none;cursor:default}
+.vbar div{position:absolute;left:2px;right:2px;border-radius:5px;background:var(--rule2);min-height:28px}
+.vbar:hover div,.vbar.drag div{background:#59606E}
+@media (pointer:coarse){.vbar{width:16px}}
+#songCanvas{position:absolute;inset:0;width:100%;height:100%}
+.head{height:64px;border-bottom:1px solid var(--rule);padding:6px 6px 6px 10px;display:flex;flex-direction:column;justify-content:space-between;position:relative;cursor:pointer}
+.head::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.head.sel{background:#2A303A}
+.head .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
+.head .sg{font-size:12px;color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head .ms{display:flex;gap:4px}
+.head .ms button{height:22px;min-width:26px;padding:0 6px;font-size:12px;border-radius:4px}
+.head .ms button.m.on{background:#C9A227;color:var(--ink)}
+.head .ms button.s.on{background:#5FA8D3;color:var(--ink)}
+#rulerHead{height:24px;border-bottom:1px solid var(--rule);display:flex;align-items:center;padding-left:10px;position:relative;z-index:2;background:var(--chrome)}
+#addTrack{height:40px;margin:8px;width:calc(100% - 16px);background:transparent;border:1px dashed var(--rule2);color:var(--dim)}
+
+/* notes view */
+#ntools{display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--chrome);border-bottom:1px solid var(--rule);overflow-x:auto}
+#ntools::-webkit-scrollbar{display:none}
+#trackPick{max-width:150px}
+#voicePick{max-width:120px;border-left:4px solid var(--vc,var(--rule2))}
+#noteWrap{flex:1;position:relative;touch-action:none;min-height:0}
+#noteCanvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* sheets */
+.scrim{position:fixed;inset:0;background:rgba(10,12,16,.6);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.scrim.show{display:flex}
+.sheet{background:var(--chrome);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:14px 14px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0))}
+.sheet h2{margin:0 0 12px;font-size:20px}
+.row{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.row > label{width:72px;color:var(--dim);font-size:14px}
+.row input[type=range]{flex:1;accent-color:var(--putty)}
+.singers{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%}
+.singers button{height:44px;text-align:left;border-left:4px solid var(--c);line-height:1.1;font-size:14px}
+.singers button small{display:block;color:var(--dim);font-size:11px}
+.singers button.on{background:var(--rule2);color:var(--putty);outline:2px solid var(--c)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{height:30px;font-size:14px}
+.chips button.custom{border:1px dashed var(--dim);background:transparent}
+.chips .grp{width:100%;color:var(--dim);font-size:12px;margin-top:2px}
+.menu button{display:block;width:100%;text-align:left;height:48px;margin:4px 0;background:transparent;border-bottom:1px solid var(--rule);border-radius:0;font-size:16px}
+.hint{color:var(--dim);font-size:13px;line-height:1.45}
+.hint code{color:var(--putty);font-family:inherit;font-weight:700}
+.danger{background:transparent;color:#E4707F;border:1px solid #6A2C36}
+
+/* lyrics + note editor */
+.lypre{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;max-height:150px;overflow:auto}
+.lypre span{background:var(--ink);border:1px solid var(--rule2);border-radius:6px;padding:4px 8px;font-size:13px;line-height:1.3}
+.lypre span b{display:block;color:var(--putty);font-size:14px}
+.lypre span i{font-style:normal;color:var(--dim)}
+.lypre span.extra{opacity:.45;border-style:dashed}
+.ph-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:30px;align-items:center}
+.ph-chips span{background:var(--rule2);border-radius:5px;padding:3px 7px;font-weight:700}
+.ph-chips span.nuc{background:var(--putty);color:var(--ink)}
+.ph-chips span.bad{background:#6A2C36;color:#F6C9CF}
+.pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px;margin:4px 0 10px}
+.pal button{height:40px;padding:0 4px;line-height:1.05;font-weight:700}
+.pal button small{display:block;font-weight:400;font-size:10.5px;color:var(--dim)}
+.pal.v button{border-bottom:2px solid var(--putty)}
+.sheet .tabs{display:inline-flex;margin-bottom:6px}
+/* DECtalk text export */
+.optgrid{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:6px 0 4px}
+.optgrid label{color:var(--dim);font-size:14px}
+.optgrid select,.optgrid input[type=text],.optgrid input[type=number]{width:100%}
+.checks{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.checks label{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3}
+.checks input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--putty);flex:none}
+.msgs{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.msg{background:var(--ink);border:1px solid var(--rule2);border-radius:8px;padding:8px}
+.msg header{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:var(--dim)}
+.msg header b{color:var(--putty);font-size:14px}
+.msg header .spacer{flex:1}
+.msg header button{height:30px}
+.msg textarea{width:100%;height:84px;font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;font-size:12px;line-height:1.35;background:#12151A;resize:vertical;user-select:text;-webkit-user-select:text}
+.msg h3{margin:4px 0 2px;font-size:15px}
+.xsum{font-size:13px;color:var(--dim);margin:8px 0 0}
+/* split */
+.splitparts{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.splitparts div{display:flex;align-items:center;gap:10px;background:var(--ink);border:1px solid var(--rule2);border-left:4px solid var(--c);border-radius:6px;padding:8px 10px;font-size:14px}
+.splitparts div b{flex:1}
+.splitparts div span{color:var(--dim);font-size:13px}
+[hidden]{display:none!important}
+/* messages appear near the top, clear of the panels that slide up from the bottom */
+#toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0));transform:translateX(-50%);background:var(--putty);color:var(--ink);padding:10px 16px;border-radius:8px;font-weight:700;display:none;z-index:30;max-width:90%;text-align:center}
+#toast.show{display:block}
+#busy{position:fixed;inset:0;background:rgba(10,12,16,.72);display:none;align-items:center;justify-content:center;z-index:40;flex-direction:column;gap:12px}
+#busy.show{display:flex}
+#busyBar{width:220px;height:6px;background:var(--rule);border-radius:3px;overflow:hidden}
+#busyFill{height:100%;width:0;background:var(--putty)}
+#engineWarn{display:none;background:var(--maroon);padding:8px 12px;font-size:14px}
+#engineWarn.show{display:block}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="engineWarn">The DECtalk engine isn’t running, so notes can’t be sung. Restart the app; if it keeps happening, your device’s processor may not be supported.</div>
+<div id="bar">
+  <div id="brand"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" rx="4" fill="#A3263A"/><g fill="#E4DECF"><rect x="4" y="8" width="2" height="4"/><rect x="7.5" y="4" width="2" height="12"/><rect x="11" y="6" width="2" height="8"/><rect x="14.5" y="9" width="2" height="2"/></g></svg>DECtalk Studio</div>
+  <div id="transport"><button id="play" aria-label="Play">▶</button>
+  <button id="stop" aria-label="Back to start">■</button>
+  <div id="pos">1.1</div>
+  <span class="lbl">BPM</span><input id="bpm" type="number" min="30" max="300" value="120"></div>
+  <div class="spacer"></div>
+  <div class="tabs"><button id="tabSong" class="on">Song</button><button id="tabNotes">Notes</button></div>
+  <button id="menuBtn" aria-label="Menu">☰</button>
+</div>
+<main>
+  <section id="songView" class="view show">
+    <div id="songWrap">
+      <div id="heads"><div id="rulerHead" class="lbl">Singers</div><div id="headsInner"></div></div>
+      <div id="lanes"><canvas id="songCanvas"></canvas><div class="vbar" id="songBar" aria-hidden="true"><div></div></div></div>
+    </div>
+  </section>
+  <section id="notesView" class="view">
+    <div id="ntools">
+      <label class="lbl" for="trackPick">Part</label><select id="trackPick"></select>
+      <label class="lbl" for="voicePick">Singer</label><select id="voicePick"></select>
+      <button id="undo" aria-label="Undo">↶</button>
+      <span class="lbl">Snap</span>
+      <select id="snap"><option value="1">1/4</option><option value="0.5">1/8</option><option value="0.25" selected>1/16</option><option value="0.3333333">1/8T</option><option value="0">Off</option></select>
+      <button id="lyricsBtn">Lyrics</button>
+      <button id="labelMode" aria-label="Note labels">Show sounds</button>
+      <button id="selAll">Select all</button>
+      <button id="delNotes" aria-label="Delete selected notes">Delete</button>
+      <button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomIn" aria-label="Zoom in">+</button>
+    </div>
+    <div id="noteWrap"><canvas id="noteCanvas"></canvas><div class="vbar" id="noteBar" aria-hidden="true"><div></div></div></div>
+  </section>
+</main>
+
+<div class="scrim" id="trackSheet"><div class="sheet">
+  <h2 id="tsTitle">Singer</h2>
+  <div class="row"><label for="tsName">Name</label><input id="tsName" type="text" style="flex:1"></div>
+  <div class="row"><div class="singers" id="tsSingers"></div></div>
+  <div class="row"><label>Default sound</label><div class="chips" id="tsSylChips" style="flex:1"></div>
+    <p class="hint" id="tsSylHint" style="margin:0;width:100%"></p></div>
+  <div class="row"><label for="tsVol">Volume</label><input id="tsVol" type="range" min="0" max="1.5" step="0.01"></div>
+  <div class="row"><label for="tsPan">Pan</label><input id="tsPan" type="range" min="-1" max="1" step="0.01"></div>
+  <div class="row"><label for="tsAssist">Range assist</label><span class="lbl">Natural</span><input id="tsAssist" type="range" min="0" max="1" step="0.05"><span class="lbl">Clearest</span>
+    <p class="hint" style="margin:0;width:100%">Tidies up very high and very low notes automatically: clearer vowels up top, less buzz down low, even volume, and true pitch from G1 to F5. Slide toward Natural to keep more of the singer’s original character.</p></div>
+  <div class="row"><label for="tsOct">Octave</label><select id="tsOct"><option value="-2">−2</option><option value="-1">−1</option><option value="0">0</option><option value="1">+1</option><option value="2">+2</option></select><span class="hint">Shifts what the singer sings, not the notes.</span></div>
+  <div class="row"><button id="tsEdit">Edit notes</button><button id="tsDup">Duplicate</button><button id="tsSplit">Split…</button><div class="spacer"></div><button id="tsDel" class="danger">Delete singer</button></div>
+  <div class="row"><div class="spacer"></div><button id="tsDone" class="on">Done</button></div>
+</div></div>
+
+<div class="scrim" id="menuSheet"><div class="sheet menu">
+  <button data-act="importMidi">Import MIDI file…</button>
+  <button data-act="addTrack">Add a singer</button>
+  <button data-act="exportWav">Export song as WAV…</button>
+  <button data-act="exportText">Export as DECtalk text…</button>
+  <button data-act="saveProject">Save project…</button>
+  <button data-act="openProject">Open project…</button>
+  <button data-act="demo">Load demo song (Daisy Bell)</button>
+  <button data-act="newSong">New empty song</button>
+  <button data-act="clearCache">Clear voice cache</button>
+  <p class="hint">Voices by DECtalk. With range assist on, notes from G1 to F5 are sung at their true pitch; notes outside that are moved by octaves and shown with a dashed outline.</p>
+</div></div>
+
+<div class="scrim" id="lyricSheet"><div class="sheet">
+  <h2>Lyrics</h2>
+  <div class="tabs"><button id="lyWords" class="on">Words</button><button id="lySounds">Sounds</button></div>
+  <p class="hint" id="lyHint"></p>
+  <textarea id="lyricText" rows="5"></textarea>
+  <p class="hint" id="lyTarget"></p>
+  <div class="lypre" id="lyPreview"></div>
+  <div class="row"><div class="spacer"></div><button id="lyricCancel">Cancel</button><button id="lyricApply" class="on">Apply lyrics</button></div>
+</div></div>
+
+<div class="scrim" id="noteSheet"><div class="sheet">
+  <h2 id="nsTitle">Note</h2>
+  <p class="hint" id="nsSub" style="margin-top:-6px"></p>
+  <div class="row"><label for="nsWord">Word</label><input id="nsWord" type="text" style="flex:1;min-width:120px" placeholder="Type a word" autocomplete="off" autocapitalize="none"><button id="nsLookup">Look up</button></div>
+  <div class="row"><label for="nsSounds">Sounds</label><input id="nsSounds" type="text" style="flex:1;min-width:120px" autocomplete="off" autocapitalize="none" spellcheck="false"><button id="nsBack" aria-label="Remove last sound">⌫</button></div>
+  <div class="ph-chips" id="nsChips"></div>
+  <p class="hint" id="nsMsg"></p>
+  <div class="lbl">Vowels (the sustained part of the note)</div><div class="pal v" id="nsPalV"></div>
+  <div class="lbl">Consonants</div><div class="pal" id="nsPalC"></div>
+  <div class="row"><button id="nsPrev">◀ Previous</button><button id="nsPlay">Play</button><button id="nsNext">Next ▶</button><div class="spacer"></div><button id="nsDefault">Use default</button></div>
+  <div class="row"><div class="spacer"></div><button id="nsDone" class="on">Done</button></div>
+</div></div>
+
+<div class="scrim" id="textSheet"><div class="sheet">
+  <h2>DECtalk text</h2>
+  <p class="hint" style="margin-top:-6px">Plain DECtalk singing code, like <code>[:phoneme on][:np][d&lt;45&gt;ey&lt;355,22&gt;]</code>, to paste into DECtalk, a chat bot or a game. One singer per block; chords become a single note.</p>
+  <div class="optgrid">
+    <label for="xTrack">Singer</label><select id="xTrack"></select>
+    <label for="xLimit">Message limit</label><select id="xLimit">
+      <option value="0">No limit (one block)</option><option value="2000">2,000 (Discord)</option><option value="4000">4,000 (Discord Nitro)</option>
+      <option value="1000">1,000</option><option value="500">500</option><option value="280">280</option><option value="custom">Custom…</option></select>
+    <label for="xCustom" id="xCustomLbl" hidden>Characters</label><input id="xCustom" type="number" min="40" max="100000" value="1500" hidden>
+    <label for="xPrefix">Start each with</label><input id="xPrefix" type="text" placeholder="e.g. !tts  (optional)" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <label for="xTiming">Timing</label><select id="xTiming"><option value="exact">Exact (every sound timed)</option><option value="compact">Compact (about a third shorter)</option></select>
+    <label for="xChord">Chords</label><select id="xChord"><option value="high">Keep the top note</option><option value="low">Keep the bottom note</option></select>
+  </div>
+  <div class="checks">
+    <label><input type="checkbox" id="xSetup" checked><span>Put the setup codes (<code>[:phoneme on]</code> and the voice) at the start of every message, so each one works on its own</span></label>
+  </div>
+  <div class="row"><button id="xPlay">▶ Hear the text</button><button id="xCopyAll">Copy all</button><button id="xSave">Save .txt</button><div class="spacer"></div><button id="xDone" class="on">Done</button></div>
+  <p class="xsum" id="xSummary"></p>
+  <div class="msgs" id="xMsgs"></div>
+</div></div>
+<div class="scrim" id="splitSheet"><div class="sheet">
+  <h2 id="spTitle">Split</h2>
+  <p class="hint" style="margin-top:-6px">Separates this singer’s notes into several singers, for example a piano part into its two hands.</p>
+  <div class="tabs"><button id="spHands" class="on">Left &amp; right hand</button><button id="spNote">At a note</button><button id="spLines">Single-note lines</button></div>
+  <p class="hint" id="spHint"></p>
+  <div class="row" id="spNoteRow" hidden><label for="spNoteSel">Split at</label><select id="spNoteSel"></select><span class="hint">This note and above go to the upper part.</span></div>
+  <div class="row" id="spLinesRow" hidden><label for="spLinesSel">Lines</label><select id="spLinesSel"><option value="0">As many as needed</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+  <div class="splitparts" id="spParts"></div>
+  <div class="checks"><label><input type="checkbox" id="spKeep"><span>Keep the original singer as well</span></label></div>
+  <div class="row"><div class="spacer"></div><button id="spCancel">Cancel</button><button id="spGo" class="on">Split</button></div>
+</div></div>
+<div id="busy"><div id="busyText">Rendering voices…</div><div id="busyBar"><div id="busyFill"></div></div></div>
+<div id="toast"></div>
+<input type="file" id="midiFile" accept=".mid,.midi,audio/midi,audio/x-midi,application/octet-stream,*/*" hidden>
+<input type="file" id="projFile" accept=".json,application/json,*/*" hidden>
+
+<script>
+"use strict";
+/* ================= constants ================= */
+/* hs/sm: DECtalk default head size & smoothness; ap: natural pitch (Hz);
+   shrink/grow: max head-size change for top/bottom notes, tuned by measuring vowel clarity */
+const SINGERS=[
+ {id:'np',name:'Paul',desc:'Perfect Paul',c:'#6FA8DC',hs:100,sm:3,ap:100,fem:0,shrink:.18,grow:.10},
+ {id:'nb',name:'Betty',desc:'Beautiful Betty',c:'#E58FB0',hs:100,sm:4,ap:208,fem:1,shrink:.06,grow:0},
+ {id:'nh',name:'Harry',desc:'Huge Harry',c:'#D9A441',hs:115,sm:12,ap:89,fem:0,shrink:.18,grow:.10},
+ {id:'nf',name:'Frank',desc:'Frail Frank',c:'#9DBF7A',hs:90,sm:46,ap:155,fem:0,shrink:.06,grow:.05},
+ {id:'nd',name:'Dennis',desc:'Doctor Dennis',c:'#B48EDB',hs:105,sm:100,ap:110,fem:0,shrink:.18,grow:.10},
+ {id:'nk',name:'Kit',desc:'Kit the Kid',c:'#F2D16B',hs:77,sm:5,ap:296,fem:1,shrink:.06,grow:0},
+ {id:'nu',name:'Ursula',desc:'Uppity Ursula',c:'#7FC8C0',hs:95,sm:60,ap:240,fem:1,shrink:.06,grow:0},
+ {id:'nr',name:'Rita',desc:'Rough Rita',c:'#E27D6A',hs:95,sm:24,ap:106,fem:1,shrink:.06,grow:0},
+ {id:'nw',name:'Wendy',desc:'Whispering Wendy',c:'#A9B4C2',hs:100,sm:100,ap:200,fem:1,shrink:.04,grow:0}];
+const ASSIST_DEFAULT=0.75;
+const assistOf=tr=>tr.assist==null?ASSIST_DEFAULT:tr.assist;
+const singer=id=>SINGERS.find(s=>s.id===id)||SINGERS[0];
+const SYL_PRESETS=['laa','duw','daa','uw','miy','bahm','ow'];
+/* DECtalk phoneme names (checked against DECtalk's own log of what it understood).
+   NUCLEI can carry a sung pitch; el/en are the syllabic l/n of "bottle", "button". */
+const NUCLEI=['aa','ae','ah','ao','aw','ax','ay','eh','ey','ih','ix','iy','ow','oy','uh','uw','yu','rr','ar','er','ir','or','ur','el','en'];
+const VOWELS=NUCLEI;
+const CONS=['ch','dh','dx','df','hx','jh','ll','lx','nx','rx','sh','th','tx','zh','yx','b','d','f','g','k','l','m','n','p','q','r','s','t','v','w','z'];
+const VALID=new Set([...NUCLEI,...CONS]);
+/* "y" and "h" are not DECtalk names (it says "command error" instead), so they map to yx/hx */
+const ALIAS={ng:'nx',h:'hx',j:'jh',y:'yx',c:'k',oo:'uw',ee:'iy'};
+const PHONE_HELP={aa:'father',ae:'cat',ah:'cup',ao:'saw',aw:'how',ax:'about',ay:'my',eh:'bed',ey:'say',ih:'sit',ix:'roses',iy:'see',ow:'go',oy:'boy',uh:'book',uw:'blue',yu:'cute',rr:'bird',ar:'bar',er:'bear',ir:'beer',or:'bore',ur:'poor',el:'bottle',en:'button',
+  b:'bat',ch:'chin',d:'dog',dh:'this',dx:'butter',f:'fan',g:'go',hx:'hat',jh:'jam',k:'kit',l:'lip',m:'man',n:'no',nx:'sing',p:'pan',q:'uh‑oh',r:'red',s:'sun',sh:'she',t:'top',th:'thin',v:'van',w:'win',yx:'yes',z:'zoo',zh:'vision'};
+const LO=24,HI=96; /* piano roll pitch range */
+const NOTE_NAMES=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+
+/* ================= state ================= */
+let P=null;            /* project */
+let selTrack=0;
+let selNotes=new Set(); /* note objects in current track */
+let posBeat=0;         /* playhead */
+let songPPB=24, notePPB=64, songX=0, noteX=0, noteY=0, songY=0;
+const undoStack=[];
+const $=id=>document.getElementById(id);
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+function newProject(){return {v:1,bpm:120,beatsPerBar:4,tracks:[mkTrack('Lead','np','laa')]};}
+function mkTrack(name,voice,syl){return {id:uid(),name,voice,syl:syl||'laa',vol:0.9,pan:0,oct:0,assist:ASSIST_DEFAULT,mute:false,solo:false,notes:[]};}
+const T=()=>P.tracks[selTrack];
+const secPerBeat=()=>60/P.bpm;
+
+/* ================= phonemes ================= */
+/* Reads a sound string. Space-separated names are taken as-is ("ih r" stays two sounds);
+   run-together text like "dey" is split greedily. Unreadable letters are reported, not sung. */
+function tokenizeReport(str){
+  const out=[],bad=[];
+  for(const chunk of (str||'').toLowerCase().split(/[^a-z]+/)){
+    if(!chunk)continue;
+    if(VALID.has(chunk)){out.push(chunk);continue}
+    let i=0;
+    while(i<chunk.length){
+      const two=chunk.slice(i,i+2);
+      if(two.length===2&&VALID.has(two)){out.push(two);i+=2;continue}
+      if(ALIAS[two]){out.push(ALIAS[two]);i+=2;continue}
+      const one=chunk[i];
+      if(VALID.has(one)){out.push(one);i++;continue}
+      if(ALIAS[one]){out.push(ALIAS[one]);i++;continue}
+      if(one==='x'){out.push('k','s');i++;continue}
+      if('aeiou'.includes(one)){out.push({a:'aa',e:'eh',i:'ih',o:'ow',u:'uw'}[one]);i++;continue}
+      bad.push(one);i++;
+    }
+  }
+  return {tokens:out,bad};
+}
+const tokenize=s=>tokenizeReport(s).tokens;
+const normSounds=s=>{const t=tokenize(s);return t.length?t.join(' '):null};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+/* Range assist. DECtalk sings MIDI 36–72 natively. Notes up to 5 semitones beyond are
+   rendered at the edge and pitch-shifted by playback speed, with head size pre-compensated
+   so the voice's resonances land back where they belong. Further out, notes fold by octaves.
+   Top notes get a smaller head (clearer vowels); bottom notes get extra smoothness (less buzz). */
+function rangePlan(midi,sg,s){
+  if(s<=0){let r=midi;while(r<36)r+=12;while(r>72)r-=12;return {render:r,sounding:r,rate:1,hs:sg.hs,sm:sg.sm}}
+  let m=midi;while(m>77)m-=12;while(m<31)m+=12;
+  const render=clamp(m,36,72),semi=m-render,rate=Math.pow(2,semi/12);
+  const f0=440*Math.pow(2,(m-69)/12);
+  const up=clamp((Math.log2(f0/sg.ap)-0.8)/0.6,0,1);
+  const down=Math.max(clamp((Math.log2(sg.ap/f0)-0.3)/1.0,0,1),clamp((48-m)/12,0,1)*0.7);
+  const hfx=1-sg.shrink*up*s+sg.grow*down*s;
+  const lo=sg.fem?Math.round(sg.hs*0.94):65;
+  return {render,sounding:m,rate,hs:Math.round(clamp(sg.hs*hfx*rate,lo,130)),sm:Math.round(clamp(sg.sm+30*down*s,0,100))};
+}
+/* returns {key,text} for a note in a track */
+function noteSpec(tr,n){
+  const sylStr=(n.l&&n.l!=='-')?n.l:tr.syl;
+  let tk=tokenize(sylStr); if(!tk.length) tk=['aa'];
+  const nuc=[];tk.forEach((t,i)=>{if(NUCLEI.includes(t))nuc.push(i)});
+  const vi=nuc.length?nuc[0]:tk.length-1;
+  const sg=singer(tr.voice),s=assistOf(tr);
+  const plan=rangePlan(n.p+12*(tr.oct||0),sg,s),pn=plan.render-35;
+  const total=Math.round(n.d*secPerBeat()*1000*plan.rate);
+  /* a whole word on one note: the first vowel holds the note, later vowels get short sung beats
+     (every vowel needs a pitch, or DECtalk would speak it off-key) */
+  const extraN=Math.max(0,nuc.length-1);
+  const extra=extraN?Math.round(clamp(total*0.25/extraN,60,140)/10)*10:0;
+  const cons=tk.slice(vi+1).filter(t=>!NUCLEI.includes(t)).length;
+  let ms=total-40*cons-extra*extraN;
+  ms=Math.max(60,Math.min(9000,Math.round(ms/10)*10));
+  const body=tk.map((t,i)=>i===vi?`${t}<${ms},${pn}>`:(i>vi&&NUCLEI.includes(t)?`${t}<${extra},${pn}>`:t)).join(' ');
+  /* head size and smoothness are always stated explicitly so no setting carries over between notes */
+  const text=`[:phoneme on][:${tr.voice}][:dv hs ${plan.hs} sm ${plan.sm}][${body}]`;
+  return {key:text,text,rate:plan.rate,assist:s,shifted:plan.sounding!==n.p+12*(tr.oct||0)};
+}
+
+/* ================= words → sounds (DECtalk's own dictionary) ================= */
+/* DECtalk's one-letter alphabet, used in its syllable log, mapped to the names it reads back */
+const ONE={e:'ey',a:'aa',i:'iy',E:'eh',A:'ay',I:'ih',O:'oy',o:'ow',u:'uw','^':'ah',W:'aw',Y:'yu',R:'rr',c:'ao','@':'ae',U:'uh','|':'ix',x:'ax',
+ p:'p',t:'t',k:'k',f:'f',T:'th',s:'s',S:'sh',C:'ch',w:'w',y:'yx',h:'hx',l:'ll',L:'el',N:'en',b:'b',d:'d',g:'g',v:'v',D:'dh',z:'z',Z:'zh',J:'jh',
+ m:'m',n:'n',G:'nx',r:'r',q:'q',Q:'tx','&':'dx',F:'df',B:'ir',K:'er',P:'ar',M:'or',j:'ur'};
+/* sustained schwa sounds weak, so reduced vowels are sung full, as singers do */
+const SING_FULL={ax:'ah',ix:'ih'};
+/* Turns DECtalk's log into one entry per clause (we send one word per clause): a list of syllables.
+   Phonemes come from the phoneme log; syllable breaks from the syllable log, aligned by position. */
+function parsePhonLog(lg){
+  const arp=[],wid=[],sylls=[],forced=new Set();let w=0;
+  for(const line of lg.split(/\r?\n/)){
+    const m=line.match(/^\[:syll\s+.*?-->\s*(.*)\]\s*$/);
+    if(m){sylls.push(m[1].trim());continue}
+    for(const chunk of line.split(/[,.!?;:]/)){
+      let any=false;
+      /* wide gaps separate DECtalk's own words inside a clause ("1999" → nineteen | ninety | nine) */
+      for(const sub of chunk.split(/\s{2,}/)){
+        const ph=[...sub.matchAll(/us_((?:(?!us_)[a-z])+)/g)].map(x=>x[1]);
+        if(!ph.length)continue;
+        if(any)forced.add(arp.length);
+        ph.forEach(p=>{arp.push(p);wid.push(w)});any=true;
+      }
+      if(any)w++;
+    }
+  }
+  const brk=new Array(arp.length).fill(false);let j=0;
+  forced.forEach(i=>{brk[i]=true});
+  for(const sy of sylls){let pend=false;
+    for(const c of sy){
+      if(c==='-'){pend=true;continue}
+      const nm=ONE[c];if(!nm||j>=arp.length)continue;
+      if(arp[j]!==nm){
+        if(c==='^')continue; /* '^' is also a phrase marker */
+        for(let k=j;k<Math.min(j+3,arp.length);k++)if(arp[k]===nm){j=k;break}
+      }
+      if(pend){brk[j]=true;pend=false}
+      j++;
+    }}
+  const words=[];
+  arp.forEach((ph,i)=>{
+    if(i===0||wid[i]!==wid[i-1])words.push([[]]);else if(brk[i])words[words.length-1].push([]);
+    const cur=words[words.length-1];cur[cur.length-1].push(SING_FULL[ph]||ph);
+  });
+  return words.map(wd=>{const sy=wd.filter(x=>x.length);
+    for(let k=0;k<sy.length;){ /* a syllable needs a vowel: fold fragments into a neighbour */
+      if(sy.length>1&&!sy[k].some(p=>NUCLEI.includes(p))){if(k+1<sy.length)sy[k+1]=sy[k].concat(sy[k+1]);else sy[k-1]=sy[k-1].concat(sy[k]);sy.splice(k,1)}else k++}
+    return sy});
+}
+const phonCache=new Map();
+async function phonLog(text){
+  if(phonCache.has(text))return phonCache.get(text);
+  const r=await fetch('dt/phonemes?q='+encodeURIComponent(text));
+  if(!r.ok)throw new Error('lookup');
+  const t=await r.text();phonCache.set(text,t);return t;
+}
+const cleanWord=w=>w.replace(/[\u2018\u2019]/g,"'").replace(/[^A-Za-z0-9']/g,'');
+/* words → syllables per word, using DECtalk's dictionary and letter-to-sound rules */
+async function wordsToSyllables(words){
+  if(!words.length)return [];
+  const groups=parsePhonLog(await phonLog(words.join(', ')+'.'));
+  if(groups.length===words.length)return groups;
+  const out=[];for(const w of words){const g=parsePhonLog(await phonLog(w+'.'));out.push(g.flat())}
+  return out;
+}
+/* lyric text → items: one per note ({ph,word,first}), or {hold} for "+", {skip} for "-" */
+async function lyricsToItems(text){
+  const toks=(text.match(/\{[^}]*\}|\S+/g)||[]);
+  const plan=[],words=[];
+  for(const t of toks){
+    if(t==='+'||t==='_'||t==='~'){plan.push({hold:true});continue}
+    if(t==='-'){plan.push({skip:true});continue}
+    if(t[0]==='{'){const s=normSounds(t.slice(1,-1));plan.push(s?{ph:s.split(' '),word:null,first:true,exact:true}:{skip:true});continue}
+    const c=cleanWord(t);if(!c)continue;
+    plan.push({wordIdx:words.length,label:t.replace(/^[^\w']+|[^\w']+$/g,'')});words.push(c);
+  }
+  const sy=await wordsToSyllables(words);
+  const items=[];
+  for(const p of plan){
+    if(p.wordIdx==null){items.push(p);continue}
+    const ss=sy[p.wordIdx]||[];
+    ss.forEach((ph,i)=>items.push({ph,word:p.label,first:i===0,nsyl:ss.length}));
+  }
+  return items;
+}
+/* puts items on notes (time order). Held syllables split: consonants before the vowel on the
+   first note, the vowel carried through, final consonants on the last note. */
+function applyItems(notes,items){
+  let chain=null;const chains=[];
+  notes.forEach((n,i)=>{
+    const it=items[i];
+    if(!it||it.skip){n.l=null;n.w=null;n.h=false;chain=null;return}
+    if(it.hold){
+      if(!chain){n.l=null;n.w=null;n.h=false;return}
+      n.h=true;n.w='–';chain.notes.push(n);return}
+    n.l=it.ph.join(' ');n.w=it.exact?null:(it.first?it.word:'–');n.h=false;
+    chain={notes:[n],ph:it.ph};chains.push(chain);
+  });
+  for(const c of chains){if(c.notes.length<2)continue;
+    let v=c.ph.findIndex(p=>NUCLEI.includes(p));if(v<0)v=c.ph.length-1;
+    const head=c.ph.slice(0,v+1),vow=[c.ph[v]],tail=[c.ph[v]].concat(c.ph.slice(v+1));
+    c.notes.forEach((n,k)=>{n.l=(k===0?head:k===c.notes.length-1?tail:vow).join(' ')});
+  }
+}
+/* rebuilds editable lyric text from notes, so reopening the sheet round-trips */
+function notesToWords(notes){
+  if(!notes.some(n=>n.l||n.w))return '';
+  const parts=[];
+  for(const n of notes){
+    if(n.h)parts.push('+');
+    else if(n.w&&n.w!=='–')parts.push(n.w);
+    else if(n.w==='–')continue;
+    else if(n.l)parts.push(`{${n.l}}`);
+    else parts.push('-');
+  }
+  return parts.join(' ');
+}
+
+/* ================= audio engine ================= */
+let ctx=null,master=null;
+const bufCache=new Map(); /* key -> {buf,onset} */
+const pending=new Map();
+let engineOK=true;
+function ensureCtx(){
+  if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=0.9;
+    const comp=ctx.createDynamicsCompressor();comp.threshold.value=-10;comp.ratio.value=4;master.connect(comp);comp.connect(ctx.destination);}
+  if(ctx.state==='suspended')ctx.resume();
+  return ctx;
+}
+async function fetchVoice(spec){
+  if(bufCache.has(spec.key))return bufCache.get(spec.key);
+  if(pending.has(spec.key))return pending.get(spec.key);
+  const pr=(async()=>{
+    const r=await fetch('dt/render?q='+encodeURIComponent(spec.text));
+    if(!r.ok)throw new Error('render failed');
+    const ab=await r.arrayBuffer();
+    const buf=await ensureCtx().decodeAudioData(ab);
+    const d=buf.getChannelData(0);let on=0;
+    for(let i=0;i<d.length;i++){if(Math.abs(d[i])>0.012){on=i;break}}
+    let end=d.length-1;while(end>on&&Math.abs(d[end])<0.012)end--;
+    let sq=0;for(let i=on;i<=end;i++)sq+=d[i]*d[i];
+    const rms=10*Math.log10(sq/Math.max(1,end-on+1)+1e-12);
+    const entry={buf,onset:Math.max(0,on/buf.sampleRate-0.006),rms};
+    bufCache.set(spec.key,entry);pending.delete(spec.key);return entry;
+  })();
+  pending.set(spec.key,pr);
+  pr.catch(()=>pending.delete(spec.key));
+  return pr;
+}
+async function prepare(specs,label){
+  const todo=[...new Map(specs.filter(s=>!bufCache.has(s.key)).map(s=>[s.key,s])).values()];
+  if(!todo.length)return true;
+  const showBusy=todo.length>3;
+  if(showBusy)busy(label||'Rendering voices…',0);
+  let done=0,failed=0;
+  const queue=todo.slice();
+  async function worker(){while(queue.length){const s=queue.shift();try{await fetchVoice(s)}catch(e){failed++}done++;if(showBusy)busy(`${label||'Rendering voices'} ${done}/${todo.length}`,done/todo.length)}}
+  await Promise.all([worker(),worker(),worker()]);
+  if(showBusy)busy(null);
+  if(failed){setEngine(false);toast(`${failed} note${failed>1?'s':''} couldn’t be rendered`)}
+  return failed===0;
+}
+function playOne(tr,n){
+  const sp=noteSpec(tr,{...n,d:Math.min(n.d,1.5)});
+  fetchVoice(sp).then(e=>{const c=ensureCtx();const g=c.createGain();g.gain.value=tr.vol;g.connect(master);
+    scheduleClip(c,g,e,c.currentTime+0.01,Math.min(n.d,1.5)*secPerBeat(),sp);}).catch(()=>setEngine(false));
+}
+/* evens out loudness across the range: low notes come out of DECtalk up to ~9 dB quieter */
+function levelFor(e,sp){if(!sp||!sp.assist)return 1;return Math.pow(10,clamp((-12-e.rms)*0.8*sp.assist,-6,9)/20)}
+function scheduleClip(c,dest,e,when,dur,sp,skip){
+  const rate=(sp&&sp.rate)||1,off=e.onset+(skip||0)*rate;
+  const src=c.createBufferSource();src.buffer=e.buf;src.playbackRate.value=rate;
+  const env=c.createGain();src.connect(env);env.connect(dest);
+  const len=Math.min((e.buf.duration-off)/rate,dur+0.06);if(len<=0.01)return null;
+  const end=when+len,lv=levelFor(e,sp);
+  env.gain.setValueAtTime(0,when);env.gain.linearRampToValueAtTime(lv,when+0.004);
+  env.gain.setValueAtTime(lv,Math.max(when+0.005,end-0.03));env.gain.linearRampToValueAtTime(0,end);
+  /* stop by clock time: start()'s duration argument is interpreted inconsistently when playbackRate≠1 */
+  src.start(when,off);src.stop(end+0.01);
+  return src;
+}
+function audible(tr){const anySolo=P.tracks.some(t=>t.solo);return anySolo?tr.solo:!tr.mute}
+function songEndBeat(){let e=0;for(const t of P.tracks)for(const n of t.notes)e=Math.max(e,n.t+n.d);return e}
+function collectEvents(fromBeat){
+  const ev=[];
+  P.tracks.forEach((tr,ti)=>{for(const n of tr.notes){if(n.t+n.d<=fromBeat)continue;ev.push({ti,tr,n,spec:noteSpec(tr,n)})}});
+  ev.sort((a,b)=>a.n.t-b.n.t);return ev;
+}
+
+/* playback */
+let playing=false,startCtxTime=0,startBeat=0,sched=null,activeSrc=[],trackNodes=[],evList=[],evIdx=0;
+async function play(){
+  if(playing){pause();return}
+  ensureCtx();
+  if(posBeat>=songEndBeat())posBeat=0;
+  evList=collectEvents(posBeat);
+  if(!evList.length){toast('Add some notes first');return}
+  const ok=await prepare(evList.map(e=>e.spec),'Rendering voices');
+  trackNodes=P.tracks.map(tr=>{const g=ctx.createGain();let out=g;
+    if(ctx.createStereoPanner){const p=ctx.createStereoPanner();p.pan.value=tr.pan;g.connect(p);out=p;}
+    out.connect(master);return g});
+  updateGains();
+  playing=true;$('play').classList.add('playing');$('play').textContent='❚❚';
+  startBeat=posBeat;startCtxTime=ctx.currentTime+0.08;evIdx=0;
+  tick();sched=setInterval(tick,40);requestAnimationFrame(frame);
+}
+function tick(){
+  const spb=secPerBeat();const nowBeat=startBeat+(ctx.currentTime-startCtxTime)/spb;
+  const horizon=nowBeat+0.6/spb;
+  while(evIdx<evList.length&&evList[evIdx].n.t<horizon){
+    const e=evList[evIdx++];const entry=bufCache.get(e.spec.key);if(!entry)continue;
+    let when=startCtxTime+(e.n.t-startBeat)*spb;let dur=e.n.d*spb;let off=0;
+    if(when<ctx.currentTime){off=ctx.currentTime-when;if(off>dur-0.05)continue;when=ctx.currentTime;dur-=off}
+    const node=trackNodes[e.ti];if(!node)continue;
+    const src=scheduleClip(ctx,node,entry,when,dur,e.spec,off);if(!src)continue;
+    activeSrc.push(src);src.onended=()=>{const i=activeSrc.indexOf(src);if(i>=0)activeSrc.splice(i,1)};
+  }
+  if(evIdx>=evList.length&&nowBeat>songEndBeat()+0.25){pause();posBeat=0;drawAll()}
+}
+function pause(){
+  if(!playing)return;
+  posBeat=startBeat+(ctx.currentTime-startCtxTime)/secPerBeat();posBeat=Math.max(0,posBeat);
+  playing=false;clearInterval(sched);
+  activeSrc.forEach(s=>{try{s.stop()}catch(e){}});activeSrc=[];
+  trackNodes.forEach(n=>n.disconnect());trackNodes=[];
+  $('play').classList.remove('playing');$('play').textContent='▶';drawAll();
+}
+function stop(){if(playing)pause();posBeat=0;songX=0;noteX=0;drawAll()}
+function updateGains(){if(!trackNodes.length)return;P.tracks.forEach((tr,i)=>{const g=trackNodes[i];if(g)g.gain.setTargetAtTime(audible(tr)?tr.vol:0,ctx.currentTime,0.02)})}
+function curBeat(){return playing?Math.max(0,startBeat+(ctx.currentTime-startCtxTime)/secPerBeat()):posBeat}
+function frame(){
+  if(!playing)return;
+  const b=curBeat();
+  if(view==='song'){const w=$('lanes').clientWidth;const x=b*songPPB-songX;if(x>w*0.85||x<0)songX=Math.max(0,b*songPPB-w*0.15);drawSong()}
+  else{const w=$('noteWrap').clientWidth-KEYW;const x=b*notePPB-noteX;if(x>w*0.85||x<0)noteX=Math.max(0,b*notePPB-w*0.15);drawNotes()}
+  updatePos();requestAnimationFrame(frame);
+}
+function updatePos(){const b=curBeat();const bpb=P.beatsPerBar||4;$('pos').textContent=`${Math.floor(b/bpb)+1}.${Math.floor(b%bpb)+1}`}
+
+/* ================= export ================= */
+async function exportWav(){
+  if(playing)pause();
+  const ev=collectEvents(0).filter(e=>audible(e.tr));
+  if(!ev.length){toast('Nothing to export yet');return}
+  if(!await prepare(ev.map(e=>e.spec),'Rendering voices'))return;
+  busy('Mixing…',0.5);
+  /* mix at the voices' own sample rate: Chrome cuts speed-shifted clips short when it also has
+     to down-convert them, so the 22 kHz conversion happens afterwards on the finished mix */
+  const sr=ensureCtx().sampleRate,spb=secPerBeat();
+  const total=songEndBeat()*spb+1;
+  const oc=new OfflineAudioContext(2,Math.ceil(total*sr),sr);
+  const m=oc.createGain();m.gain.value=0.9;const comp=oc.createDynamicsCompressor();comp.threshold.value=-10;comp.ratio.value=4;m.connect(comp);comp.connect(oc.destination);
+  const nodes=P.tracks.map(tr=>{const g=oc.createGain();g.gain.value=tr.vol;const p=oc.createStereoPanner();p.pan.value=tr.pan;g.connect(p);p.connect(m);return g});
+  for(const e of ev){const en=bufCache.get(e.spec.key);if(en)scheduleClip(oc,nodes[P.tracks.indexOf(e.tr)],en,0.05+e.n.t*spb,e.n.d*spb,e.spec)}
+  const mixed=await oc.startRendering();
+  const outSr=22050,dc=new OfflineAudioContext(2,Math.ceil(mixed.duration*outSr),outSr);
+  const ds=dc.createBufferSource();ds.buffer=mixed;ds.connect(dc.destination);ds.start(0);
+  const out=await dc.startRendering();
+  const wav=encodeWav(out);busy(null);
+  saveBlob(wav,(P.name||'song')+'.wav','audio/wav');
+}
+function encodeWav(b){
+  const ch=b.numberOfChannels,len=b.length,sr=b.sampleRate;
+  const buf=new ArrayBuffer(44+len*ch*2);const v=new DataView(buf);
+  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+len*ch*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,ch,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*ch*2,true);v.setUint16(32,ch*2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,len*ch*2,true);
+  const data=[];for(let c=0;c<ch;c++)data.push(b.getChannelData(c));
+  let o=44;for(let i=0;i<len;i++)for(let c=0;c<ch;c++){const s=Math.max(-1,Math.min(1,data[c][i]));v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true);o+=2}
+  return new Uint8Array(buf);
+}
+function saveBlob(bytes,name,mime){
+  if(window.DTAndroid&&DTAndroid.saveFile){
+    let bin='';const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+    DTAndroid.saveFile(name,mime,btoa(bin));return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:mime}));a.download=name;a.click();
+}
+window.onSaved=(ok,name)=>toast(ok?`Saved ${name}`:'Not saved');
+
+/* ================= MIDI import ================= */
+function parseMidi(ab){
+  const d=new DataView(ab);let p=0;
+  const str=n=>{let s='';for(let i=0;i<n;i++)s+=String.fromCharCode(d.getUint8(p+i));p+=n;return s};
+  const u32=()=>{const v=d.getUint32(p);p+=4;return v},u16=()=>{const v=d.getUint16(p);p+=2;return v},u8=()=>d.getUint8(p++);
+  const vlq=()=>{let v=0,b;do{b=u8();v=(v<<7)|(b&0x7f)}while(b&0x80);return v};
+  if(str(4)!=='MThd')throw new Error('Not a MIDI file');
+  const hl=u32();const fmt=u16();const ntr=u16();const div=u16();p=8+hl;
+  if(div&0x8000)throw new Error('SMPTE timing isn’t supported');
+  const tempos=[],tracks=[];let ts=null;
+  for(let t=0;t<ntr&&p<d.byteLength;t++){
+    const id=str(4),len=u32(),end=p+len;
+    if(id!=='MTrk'){p=end;continue}
+    let tick=0,run=0,name='';const open={};const notes=[];const chans=new Set();let prog={};
+    while(p<end){
+      tick+=vlq();let st=d.getUint8(p);
+      if(st&0x80){p++;if(st<0xF0)run=st}else st=run;
+      if(st===0xFF){const ty=u8(),l=vlq();
+        if(ty===0x51&&l===3)tempos.push({tick,us:(d.getUint8(p)<<16)|(d.getUint8(p+1)<<8)|d.getUint8(p+2)});
+        else if(ty===0x03&&!name){let s='';for(let i=0;i<l;i++)s+=String.fromCharCode(d.getUint8(p+i));name=s.trim()}
+        else if(ty===0x58&&!ts)ts=d.getUint8(p);
+        p+=l;}
+      else if(st===0xF0||st===0xF7){p+=vlq()}
+      else{const hi=st&0xF0,ch=st&0x0F;
+        if(hi===0x90||hi===0x80){const k=u8(),vel=u8();const key=ch*128+k;
+          if(hi===0x90&&vel>0){(open[key]=open[key]||[]).push({tick,vel})}
+          else{const o=open[key]&&open[key].shift();if(o&&tick>o.tick){notes.push({ch,k,s:o.tick,e:tick});chans.add(ch)}}}
+        else if(hi===0xC0){prog[ch]=u8()}
+        else if(hi===0xD0){p+=1}
+        else p+=2;}
+    }
+    p=end;tracks.push({name,notes});
+  }
+  tempos.sort((a,b)=>a.tick-b.tick);
+  if(!tempos.length||tempos[0].tick>0)tempos.unshift({tick:0,us:500000});
+  const segs=[];let sec=0;for(let i=0;i<tempos.length;i++){segs.push({tick:tempos[i].tick,sec,us:tempos[i].us});if(i+1<tempos.length)sec+=(tempos[i+1].tick-tempos[i].tick)/div*tempos[i].us/1e6}
+  const t2s=tk=>{let s=segs[0];for(const g of segs){if(g.tick<=tk)s=g;else break}return s.sec+(tk-s.tick)/div*s.us/1e6};
+  return {tracks,t2s,bpm:Math.round(60e6/tempos[0].us),beatsPerBar:ts||4};
+}
+function importMidi(ab,fileName){
+  let m;try{m=parseMidi(ab)}catch(e){toast(e.message);return}
+  const bpm=Math.max(30,Math.min(300,m.bpm));const bps=bpm/60;
+  const out=[];let vi=0;let drumsSkipped=0;
+  m.tracks.forEach((tr,ti)=>{
+    const byCh={};for(const n of tr.notes){if(n.ch===9){drumsSkipped++;continue}(byCh[n.ch]=byCh[n.ch]||[]).push(n)}
+    const chs=Object.keys(byCh);
+    chs.forEach(ch=>{
+      const t=mkTrack((tr.name||`Track ${ti+1}`)+(chs.length>1?` · ch ${+ch+1}`:''),SINGERS[vi++%SINGERS.length].id,SYL_PRESETS[(vi-1)%3]);
+      t.notes=byCh[ch].map(n=>{const s=m.t2s(n.s),e=m.t2s(n.e);return {t:+(s*bps).toFixed(4),d:Math.max(0.05,+((e-s)*bps).toFixed(4)),p:n.k,l:null}}).sort((a,b)=>a.t-b.t);
+      out.push(t);
+    });
+  });
+  if(!out.length){toast('No melodic notes found in that file');return}
+  pushUndo();
+  P={v:1,bpm,beatsPerBar:m.beatsPerBar,name:(fileName||'song').replace(/\.midi?$/i,''),tracks:out};
+  selTrack=0;selNotes.clear();posBeat=0;songX=0;noteX=0;
+  $('bpm').value=bpm;refreshAll();save();
+  const total=out.reduce((a,t)=>a+t.notes.length,0);
+  const chordy=out.filter(t=>maxPoly(t.notes)>1).length;
+  toast(`Imported ${out.length} track${out.length>1?'s':''}, ${total} notes`+(drumsSkipped?' (drums skipped)':'')+
+    (chordy?`. ${chordy===1?'One part has':chordy+' parts have'} chords: open its singer and choose Split… to separate hands or lines.`:''));
+}
+
+/* ================= persistence ================= */
+let saveT=null;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('dtstudio.project',JSON.stringify(P))}catch(e){}},400)}
+function load(){try{const s=localStorage.getItem('dtstudio.project');if(s){const p=JSON.parse(s);if(p&&p.tracks)return p}}catch(e){}return null}
+function pushUndo(){undoStack.push(JSON.stringify(P));if(undoStack.length>60)undoStack.shift()}
+function undo(){if(!undoStack.length){toast('Nothing to undo');return}P=JSON.parse(undoStack.pop());selTrack=Math.min(selTrack,P.tracks.length-1);selNotes.clear();$('bpm').value=P.bpm;refreshAll();save()}
+
+/* ================= UI helpers ================= */
+let toastT;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
+function busy(text,frac){if(text===null){$('busy').classList.remove('show');return}$('busy').classList.add('show');$('busyText').textContent=text;$('busyFill').style.width=(frac*100)+'%'}
+function setEngine(ok){engineOK=ok;$('engineWarn').classList.toggle('show',!ok)}
+function openSheet(id){$(id).classList.add('show')}
+function closeSheet(id){$(id).classList.remove('show')}
+document.querySelectorAll('.scrim').forEach(s=>s.addEventListener('click',e=>{if(e.target===s)s.classList.remove('show')}));
+const nn=p=>NOTE_NAMES[p%12]+(Math.floor(p/12)-1);
+function fitCanvas(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;const w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return {c,w:r.width,h:r.height}}
+
+/* ================= song view ================= */
+const ROWH_SONG=64,RULER=24;
+function renderHeads(){
+  const h=$('headsInner');h.innerHTML='';
+  P.tracks.forEach((tr,i)=>{
+    const s=singer(tr.voice);const d=document.createElement('div');d.className='head'+(i===selTrack?' sel':'');d.style.setProperty('--c',s.c);
+    d.innerHTML=`<div><div class="nm"></div><div class="sg">${s.desc}</div></div><div class="ms"><button class="m${tr.mute?' on':''}" aria-label="Mute">M</button><button class="s${tr.solo?' on':''}" aria-label="Solo">S</button></div>`;
+    d.querySelector('.nm').textContent=tr.name;
+    d.onclick=e=>{if(e.target.tagName==='BUTTON')return;selTrack=i;selNotes.clear();openTrackSheet()};
+    d.querySelector('.m').onclick=()=>{tr.mute=!tr.mute;updateGains();renderHeads();drawSong();save()};
+    d.querySelector('.s').onclick=()=>{tr.solo=!tr.solo;updateGains();renderHeads();drawSong();save()};
+    h.appendChild(d);
+  });
+  const b=document.createElement('button');b.id='addTrack';b.textContent='Add singer';b.onclick=addTrack;h.appendChild(b);
+  h.style.transform=`translateY(${-songY}px)`;
+}
+/* scroll bar: drag the thumb, or click the track to move a page */
+function vbar(id,getMax,getPos,setPos){
+  const bar=$(id),th=bar.firstElementChild;let drag=null;
+  /* measure from the container: a hidden bar has no height of its own */
+  const barH=()=>Math.max(0,bar.parentElement.clientHeight-24);
+  const thumbH=()=>{const h=barH(),max=getMax();return Math.max(28,h*h/(h+max))};
+  bar.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();const max=getMax();if(max<=0)return;
+    if(e.target===th){drag={y:e.clientY,pos:getPos()};bar.setPointerCapture(e.pointerId);bar.classList.add('drag');return}
+    const r=th.getBoundingClientRect(),page=barH()*0.9;setPos(getPos()+(e.clientY<r.top?-page:page))});
+  bar.addEventListener('pointermove',e=>{if(!drag)return;const max=getMax(),room=barH()-thumbH();setPos(drag.pos+(e.clientY-drag.y)*(room>0?max/room:0))});
+  const end=()=>{drag=null;bar.classList.remove('drag')};bar.addEventListener('pointerup',end);bar.addEventListener('pointercancel',end);
+  bar.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
+  return ()=>{const max=getMax(),h=barH();if(max<=0||!h){bar.hidden=true;return}bar.hidden=false;
+    const tH=thumbH();th.style.height=tH+'px';th.style.top=((h-tH)*clamp(getPos(),0,max)/max)+'px'};
+}
+const songMaxY=()=>Math.max(0,P.tracks.length*ROWH_SONG+60-($('lanes').clientHeight-RULER));
+function setSongY(y){songY=clamp(y,0,songMaxY());$('headsInner').style.transform=`translateY(${-songY}px)`;drawSong()}
+const noteMaxY=()=>Math.max(0,(HI-LO+1)*ROWH-($('noteWrap').clientHeight-NRULER));
+function setNoteY(y){noteY=clamp(y,0,noteMaxY());drawNotes()}
+let songBarUpd=null,noteBarUpd=null;
+function drawSong(){
+  if(songY>songMaxY()){songY=songMaxY();$('headsInner').style.transform=`translateY(${-songY}px)`}
+  if(!songBarUpd)songBarUpd=vbar('songBar',songMaxY,()=>songY,setSongY);
+  drawSongCanvas();songBarUpd();
+}
+function drawSongCanvas(){
+  const {c,w,h}=fitCanvas($('songCanvas'));
+  c.fillStyle='#171A20';c.fillRect(0,0,w,h);
+  const bpb=P.beatsPerBar||4;const b0=Math.floor(songX/songPPB),b1=Math.ceil((songX+w)/songPPB);
+  const step=songPPB<8?bpb*4:songPPB<16?bpb:1;
+  for(let b=Math.floor(b0/step)*step;b<=b1;b+=step){const x=Math.round(b*songPPB-songX)+.5;
+    c.strokeStyle=b%bpb===0?'#2C313B':'#1F232B';c.beginPath();c.moveTo(x,RULER);c.lineTo(x,h);c.stroke();}
+  P.tracks.forEach((tr,i)=>{
+    const y0=RULER+i*ROWH_SONG-songY;if(y0>h||y0+ROWH_SONG<RULER)return;
+    if(i===selTrack){c.fillStyle='rgba(255,255,255,.035)';c.fillRect(0,y0,w,ROWH_SONG)}
+    c.strokeStyle='#2C313B';c.beginPath();c.moveTo(0,y0+ROWH_SONG-.5);c.lineTo(w,y0+ROWH_SONG-.5);c.stroke();
+    if(!tr.notes.length)return;
+    let lo=127,hi=0;for(const n of tr.notes){lo=Math.min(lo,n.p);hi=Math.max(hi,n.p)}
+    const span=Math.max(12,hi-lo+1);const mid=(lo+hi)/2;const top=mid+span/2;
+    const col=singer(tr.voice).c;c.fillStyle=audible(tr)?col:'#4A505C';
+    const rh=Math.max(2,(ROWH_SONG-12)/span);
+    for(const n of tr.notes){const x=n.t*songPPB-songX,ww=Math.max(1.5,n.d*songPPB-1);if(x+ww<0||x>w)continue;
+      const y=y0+6+(top-n.p)*(ROWH_SONG-12)/span;c.fillRect(x,y,ww,rh)}
+  });
+  /* ruler */
+  c.fillStyle='#20242C';c.fillRect(0,0,w,RULER);c.strokeStyle='#2C313B';c.beginPath();c.moveTo(0,RULER-.5);c.lineTo(w,RULER-.5);c.stroke();
+  c.fillStyle='#8B909B';c.font='12px '+getComputedStyle(document.body).fontFamily;
+  const barStep=Math.max(1,Math.ceil(40/(songPPB*bpb)));
+  for(let bar=Math.floor(b0/bpb);bar*bpb<=b1;bar++){if(bar%barStep)continue;const x=bar*bpb*songPPB-songX;c.fillText(String(bar+1),x+4,16)}
+  const px=curBeat()*songPPB-songX;c.fillStyle='#E4DECF';c.fillRect(Math.round(px)-1,0,2,h);
+  c.beginPath();c.moveTo(px-6,0);c.lineTo(px+6,0);c.lineTo(px,8);c.fill();
+}
+/* song gestures */
+(function(){
+  const el=$('lanes');const ptrs=new Map();let start=null,pinch=null,lastTap=0;
+  el.addEventListener('pointerdown',e=>{el.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.abs(a.x-b.x)||1,ppb:songPPB,cx:(a.x+b.x)/2-el.getBoundingClientRect().left};start=null;return}
+    start={x:e.clientX,y:e.clientY,sx:songX,sy:songY,moved:false};});
+  el.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()];const nd=Math.abs(a.x-b.x)||1;const beat=(pinch.cx+songX)/songPPB;songPPB=Math.max(3,Math.min(120,pinch.ppb*nd/pinch.d));songX=Math.max(0,beat*songPPB-pinch.cx);drawSong();return}
+    if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.hypot(dx,dy)>6)start.moved=true;
+    if(start.moved){songX=Math.max(0,start.sx-dx);setSongY(start.sy-dy)}});
+  const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
+    if(start&&!start.moved){const r=el.getBoundingClientRect();const x=e.clientX-r.left,y=e.clientY-r.top;
+      if(y<RULER){seek((x+songX)/songPPB)}
+      else{const i=Math.floor((y-RULER+songY)/ROWH_SONG);if(i>=0&&i<P.tracks.length){const now=Date.now();
+        if(i===selTrack&&now-lastTap<350){setView('notes');focusTrackNotes()}else{selTrack=i;selNotes.clear();renderHeads();drawSong()}lastTap=now}}}
+    start=null;};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  /* wheel scrolls through the singers; Shift+wheel (or a sideways trackpad swipe) scrolls the timeline */
+  el.addEventListener('wheel',e=>{e.preventDefault();
+    if(e.ctrlKey){songPPB=Math.max(3,Math.min(120,songPPB*(e.deltaY<0?1.1:0.9)));drawSong()}
+    else if(e.shiftKey||Math.abs(e.deltaX)>Math.abs(e.deltaY)){songX=Math.max(0,songX+(e.deltaX||e.deltaY));drawSong()}
+    else setSongY(songY+e.deltaY)},{passive:false});
+  $('heads').addEventListener('wheel',e=>{if(e.ctrlKey||e.shiftKey)return;e.preventDefault();setSongY(songY+e.deltaY)},{passive:false});
+})();
+function seek(b){const was=playing;if(playing)pause();posBeat=Math.max(0,b);updatePos();drawAll();if(was)play()}
+
+/* ================= notes view ================= */
+const KEYW=46,ROWH=16,NRULER=24;
+const nx=b=>KEYW+b*notePPB-noteX, ny=p=>NRULER+(HI-p)*ROWH-noteY;
+function drawNotes(){
+  if(noteY>noteMaxY())noteY=noteMaxY();
+  if(!noteBarUpd)noteBarUpd=vbar('noteBar',noteMaxY,()=>noteY,setNoteY);
+  drawNotesCanvas();noteBarUpd();
+}
+function drawNotesCanvas(){
+  const {c,w,h}=fitCanvas($('noteCanvas'));const tr=T();if(!tr){c.clearRect(0,0,w,h);return}
+  const col=singer(tr.voice).c;const font=getComputedStyle(document.body).fontFamily;
+  c.fillStyle='#171A20';c.fillRect(0,0,w,h);
+  for(let p=HI;p>=LO;p--){const y=ny(p);if(y>h||y+ROWH<NRULER)continue;const blk=[1,3,6,8,10].includes(p%12);
+    const sp=p+12*(tr.oct||0),as=assistOf(tr)>0;const fold=as?(sp<31||sp>77):(sp<36||sp>72);
+    c.fillStyle=blk?'#14171C':'#191C23';if(fold)c.fillStyle=blk?'#101216':'#131519';c.fillRect(KEYW,y,w,ROWH);
+    if(p%12===0){c.fillStyle='#2C313B';c.fillRect(KEYW,y+ROWH-1,w,1)}}
+  const bpb=P.beatsPerBar||4;const snap=+$('snap').value||0.25;
+  const b0=Math.floor(noteX/notePPB),b1=Math.ceil((noteX+w)/notePPB);
+  const sub=notePPB*snap>=10?snap:(notePPB>=10?1:bpb);
+  for(let b=Math.floor(b0/sub)*sub;b<=b1;b+=sub){const x=Math.round(nx(b))+.5;if(x<KEYW)continue;
+    const onBar=Math.abs(b/bpb-Math.round(b/bpb))<1e-6,onBeat=Math.abs(b-Math.round(b))<1e-6;
+    c.strokeStyle=onBar?'#3A404C':onBeat?'#262A33':'#1E2129';c.beginPath();c.moveTo(x,NRULER);c.lineTo(x,h);c.stroke()}
+  /* ghost notes of other tracks */
+  c.globalAlpha=.18;P.tracks.forEach((o,i)=>{if(i===selTrack)return;c.fillStyle=singer(o.voice).c;for(const n of o.notes){const x=nx(n.t);if(x>w||x+n.d*notePPB<KEYW)continue;c.fillRect(x,ny(n.p)+5,n.d*notePPB,ROWH-10)}});c.globalAlpha=1;
+  /* notes */
+  c.font='12px '+font;c.textBaseline='middle';
+  for(const n of tr.notes){const x=nx(n.t),y=ny(n.p),ww=Math.max(3,n.d*notePPB-1);if(x>w||x+ww<KEYW||y>h||y+ROWH<NRULER)continue;
+    const sel=selNotes.has(n);c.fillStyle=col;c.globalAlpha=sel?1:.82;c.fillRect(x,y+1,ww,ROWH-2);c.globalAlpha=1;
+    if(sel){c.strokeStyle='#FFFFFF';c.lineWidth=2;c.strokeRect(x+1,y+2,ww-2,ROWH-4);c.lineWidth=1}
+    else if(noteSpec(tr,n).shifted){c.strokeStyle='#E4DECF';c.setLineDash([3,3]);c.strokeRect(x+1.5,y+2.5,ww-3,ROWH-5);c.setLineDash([])}
+    if(pressFx&&pressFx.note===n){const k=clamp((performance.now()-pressFx.t0-120)/(LONG_PRESS-120),0,1);c.fillStyle='rgba(255,255,255,.45)';c.fillRect(x,y+1,ww*k,ROWH-2)}
+    if(ww>22){c.save();c.beginPath();c.rect(x,y,ww-4,ROWH);c.clip();c.fillStyle='#171A20';c.fillText(noteLabel(tr,n),x+4,y+ROWH/2+1);c.restore()}
+    c.fillStyle='rgba(23,26,32,.45)';if(ww>14)c.fillRect(x+ww-4,y+4,2,ROWH-8);}
+  /* keys */
+  for(let p=HI;p>=LO;p--){const y=ny(p);if(y>h||y+ROWH<NRULER)continue;const blk=[1,3,6,8,10].includes(p%12);
+    const sp=p+12*(tr.oct||0),as=assistOf(tr)>0;const fold=as?(sp<31||sp>77):(sp<36||sp>72);
+    c.fillStyle=blk?'#2A2E36':'#D9D3C4';if(fold)c.fillStyle=blk?'#24272E':'#8F8B81';c.fillRect(0,y,KEYW-1,ROWH-1);
+    if(p%12===0){c.fillStyle='#171A20';c.fillText(nn(p),4,y+ROWH/2+1)}}
+  /* ruler */
+  c.fillStyle='#20242C';c.fillRect(0,0,w,NRULER);c.fillStyle='#8B909B';
+  for(let bar=Math.floor(b0/bpb);bar*bpb<=b1;bar++){const x=nx(bar*bpb);if(x<KEYW-2)continue;c.fillText(String(bar+1),x+4,NRULER/2+1);c.fillRect(Math.round(x),NRULER-8,1,8)}
+  c.fillStyle='#20242C';c.fillRect(0,0,KEYW,NRULER);
+  const px=nx(curBeat());if(px>=KEYW){c.fillStyle='#E4DECF';c.fillRect(Math.round(px)-1,0,2,h);c.beginPath();c.moveTo(px-6,0);c.lineTo(px+6,0);c.lineTo(px,8);c.fill()}
+}
+let labelMode=(()=>{try{return localStorage.getItem('dtstudio.labels')||'words'}catch(e){return 'words'}})();
+function noteLabel(tr,n){
+  const snd=(n.l&&n.l!=='-')?n.l:tr.syl;
+  if(labelMode!=='words')return snd;
+  if(n.h)return '~';
+  if(n.w==='–')return '· '+snd;
+  return n.w||snd;
+}
+function focusTrackNotes(){const tr=T();if(!tr)return;const h=$('noteWrap').clientHeight-NRULER;
+  let lo=60,hi=72;if(tr.notes.length){lo=Math.min(...tr.notes.map(n=>n.p));hi=Math.max(...tr.notes.map(n=>n.p))}
+  noteY=Math.max(0,Math.min((HI-LO+1)*ROWH-h,(HI-(lo+hi)/2)*ROWH-h/2));
+  if(tr.notes.length){const first=tr.notes.reduce((a,n)=>Math.min(a,n.t),1e9);const vw=$('noteWrap').clientWidth-KEYW;const cb=curBeat();
+    if(cb*notePPB<noteX||cb*notePPB>noteX+vw)noteX=Math.max(0,Math.min(first,cb)*notePPB-20)}
+  drawNotes()}
+let lastLen=1;
+const LONG_PRESS=500;let pressFx=null;
+(function(){
+  const el=$('noteWrap');const ptrs=new Map();let g=null,pinch=null,lastTap={n:null,t:0};
+  const cancelPress=()=>{if(g&&g.lp){clearTimeout(g.lp);g.lp=null}if(pressFx){pressFx=null;drawNotes()}};
+  const animPress=()=>{if(!pressFx)return;drawNotes();requestAnimationFrame(animPress)};
+  const hit=(x,y)=>{const tr=T();for(let i=tr.notes.length-1;i>=0;i--){const n=tr.notes[i];const nx0=nx(n.t),ny0=ny(n.p),ww=Math.max(3,n.d*notePPB);if(x>=nx0&&x<=nx0+ww&&y>=ny0&&y<ny0+ROWH)return n}return null};
+  const snapB=b=>{const s=+$('snap').value;return s?Math.round(b/s)*s:b};
+  el.addEventListener('pointerdown',e=>{if(!T())return;el.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const r=el.getBoundingClientRect();const x=e.clientX-r.left,y=e.clientY-r.top;
+    if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.abs(a.x-b.x)||1,ppb:notePPB,cx:(a.x+b.x)/2-r.left-KEYW};cancelPress();g=null;return}
+    g={x0:e.clientX,y0:e.clientY,x,y,moved:false,sx:noteX,sy:noteY};
+    if(y<NRULER){g.mode='seek';return}
+    if(x<KEYW){g.mode='key';const p=Math.round(HI-(y+noteY-NRULER-ROWH/2)/ROWH);playOne(T(),{t:0,d:1,p,l:null});return}
+    const n=hit(x,y);
+    if(n){const nx0=nx(n.t),ww=Math.max(3,n.d*notePPB);const edge=Math.max(8,Math.min(18,ww/3));
+      if(!selNotes.has(n)){selNotes.clear();selNotes.add(n)}
+      g.mode=(x>nx0+ww-edge)?'resize':'move';g.note=n;g.orig=[...selNotes].map(m=>({m,t:m.t,d:m.d,p:m.p}));
+      /* hold still for half a second to edit the note's sounds */
+      const gg=g;pressFx={note:n,t0:performance.now()};requestAnimationFrame(animPress);
+      g.lp=setTimeout(()=>{if(g!==gg||gg.moved)return;gg.mode='longpress';pressFx=null;
+        if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){};openNoteEditor(n)},LONG_PRESS);
+      drawNotes();}
+    else g.mode='empty';
+  });
+  el.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()];const nd=Math.abs(a.x-b.x)||1;const beat=(pinch.cx+noteX)/notePPB;notePPB=Math.max(12,Math.min(400,pinch.ppb*nd/pinch.d));noteX=Math.max(0,beat*notePPB-pinch.cx);drawNotes();return}
+    if(!g)return;const dx=e.clientX-g.x0,dy=e.clientY-g.y0;if(!g.moved&&Math.hypot(dx,dy)>6){g.moved=true;cancelPress()}if(!g.moved)return;
+    if(g.mode==='empty'||g.mode==='key'){noteX=Math.max(0,g.sx-dx);noteY=Math.max(0,Math.min((HI-LO+1)*ROWH-(el.clientHeight-NRULER),g.sy-dy));drawNotes()}
+    else if(g.mode==='move'||g.mode==='resize'){
+      if(!g.undo){pushUndo();g.undo=true}
+      const db=dx/notePPB,dp=-Math.round(dy/ROWH);
+      if(g.mode==='move'){const lead=g.orig.find(o=>o.m===g.note);const nt=Math.max(0,snapB(lead.t+db));const shift=nt-lead.t;
+        const minT=Math.min(...g.orig.map(o=>o.t));const sh=Math.max(shift,-minT);
+        g.orig.forEach(o=>{o.m.t=+(o.t+sh).toFixed(4);o.m.p=Math.max(LO,Math.min(HI,o.p+dp))});
+        if(dp!==g.lastDp){g.lastDp=dp;playOne(T(),g.note)}}
+      else{const s=+$('snap').value||0.0625;g.orig.forEach(o=>{let end=snapB(o.t+o.d+db);o.m.d=+Math.max(s,end-o.t).toFixed(4)});lastLen=g.note.d}
+      drawNotes();drawSong();}
+    else if(g.mode==='seek'){seekNoRestart((g.x-KEYW+dx+noteX)/notePPB)}
+  });
+  const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;if(!g)return;
+    cancelPress();
+    if(g.mode==='longpress'){g=null;return}
+    if(!g.moved&&(g.mode==='move'||g.mode==='resize')){const now=Date.now();
+      if(lastTap.n===g.note&&now-lastTap.t<350){lastTap={n:null,t:0};openNoteEditor(g.note);g=null;return}
+      lastTap={n:g.note,t:now}}
+    if(!g.moved){
+      if(g.mode==='seek')seek((g.x-KEYW+noteX)/notePPB);
+      else if(g.mode==='empty'){
+        if(selNotes.size){selNotes.clear();drawNotes()}
+        else{pushUndo();const s=+$('snap').value;const b=(g.x-KEYW+noteX)/notePPB;const t=Math.max(0,s?Math.floor(b/s)*s:b);
+          const p=Math.round(HI-(g.y+noteY-NRULER-ROWH/2)/ROWH);const n={t:+t.toFixed(4),d:lastLen,p,l:null};T().notes.push(n);sortNotes();selNotes.clear();selNotes.add(n);playOne(T(),n);drawNotes();drawSong();save()}}
+      else if(g.mode==='move'||g.mode==='resize'){playOne(T(),g.note);if(g.mode==='move')lastLen=g.note.d}
+    } else if(g.undo){sortNotes();save()}
+    if(g.mode==='seek'&&g.moved)drawAll();
+    g=null;};
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();if(e.ctrlKey){notePPB=Math.max(12,Math.min(400,notePPB*(e.deltaY<0?1.1:0.9)))}else if(e.shiftKey){noteX=Math.max(0,noteX+e.deltaY)}else{noteX=Math.max(0,noteX+e.deltaX);noteY=Math.max(0,Math.min((HI-LO+1)*ROWH-(el.clientHeight-NRULER),noteY+e.deltaY))}drawNotes()},{passive:false});
+})();
+function seekNoRestart(b){if(playing)return;posBeat=Math.max(0,b);updatePos();drawNotes()}
+function sortNotes(){T().notes.sort((a,b)=>a.t-b.t||a.p-b.p)}
+document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.key===' '){e.preventDefault();play()}
+  else if((e.key==='Delete'||e.key==='Backspace')&&view==='notes'){delSel()}
+  else if(e.key==='z'&&(e.ctrlKey||e.metaKey)){undo()}});
+function delSel(){if(!selNotes.size){toast('Tap a note to select it first');return}pushUndo();T().notes=T().notes.filter(n=>!selNotes.has(n));selNotes.clear();drawNotes();drawSong();save()}
+
+/* ================= track sheet ================= */
+/* the sample played when picking a singer: the song's first note with its own lyric, so the
+   preview sounds like the part (only a track with no lyrics yet previews the default syllable) */
+function previewNote(tr){
+  const ns=tr.notes.slice().sort((a,b)=>a.t-b.t);
+  const n=ns.find(x=>x.l&&x.l!=='-')||ns[0];
+  return n?{...n,d:Math.min(n.d,1.5)}:{t:0,d:1,p:60,l:null};
+}
+function openTrackSheet(){const tr=T();if(!tr)return;
+  $('tsName').value=tr.name;
+  const withLyrics=tr.notes.filter(n=>n.l&&n.l!=='-').length;
+  $('tsSylHint').textContent=!tr.notes.length?'Notes sing this until you give them lyrics.'
+    :withLyrics===tr.notes.length?`All ${withLyrics} notes have lyrics, so this isn’t used. Changing the singer keeps every lyric.`
+    :withLyrics?`Only the ${tr.notes.length-withLyrics} notes without lyrics sing this; the other ${withLyrics} keep their lyrics.`
+    :'Every note sings this until you add lyrics.';$('tsAssist').value=assistOf(tr);$('tsVol').value=tr.vol;$('tsPan').value=tr.pan;$('tsOct').value=tr.oct||0;
+  const box=$('tsSingers');box.innerHTML='';
+  SINGERS.forEach(s=>{const b=document.createElement('button');b.style.setProperty('--c',s.c);b.className=s.id===tr.voice?'on':'';b.innerHTML=`${s.name}<small>${s.desc}</small>`;
+    b.onclick=()=>{pushUndo();tr.voice=s.id;openTrackSheet();renderHeads();drawAll();save();playOne(tr,previewNote(tr))};box.appendChild(b)});
+  renderSylChips(tr);
+  renderHeads();drawSong();openSheet('trackSheet');}
+$('tsName').oninput=e=>{T().name=e.target.value;renderHeads();refreshPick();save()};
+/* default sound: presets, your own saved sounds, or Custom… (the sound editor, with word lookup and palette) */
+const mySounds=()=>{try{return JSON.parse(localStorage.getItem('dtstudio.mysounds')||'[]')}catch(e){return []}};
+function rememberSound(snd,word){
+  if(!snd||SYL_PRESETS.some(p=>tokenize(p).join(' ')===snd))return;
+  const list=mySounds().filter(x=>x.s!==snd);list.unshift({s:snd,w:word||null});
+  try{localStorage.setItem('dtstudio.mysounds',JSON.stringify(list.slice(0,8)))}catch(e){}
+}
+const sameSound=(a,b)=>tokenize(a).join(' ')===tokenize(b).join(' ');
+function renderSylChips(tr){
+  const ch=$('tsSylChips');ch.innerHTML='';
+  const add=(label,snd,word,cls)=>{const b=document.createElement('button');b.textContent=label;if(word)b.title=`${word}: ${snd}`;
+    b.className=(cls||'')+(sameSound(snd,tr.syl)?' on':'');
+    b.onclick=()=>{pushUndo();tr.syl=snd;tr.sylWord=word||null;renderSylChips(tr);drawAll();save();playOne(tr,{t:0,d:1,p:previewNote(tr).p,l:null})};ch.appendChild(b)};
+  SYL_PRESETS.forEach(p=>add(p,p));
+  const mine=mySounds();
+  const cur=tr.syl;const known=SYL_PRESETS.some(p=>sameSound(p,cur))||mine.some(m=>sameSound(m.s,cur));
+  if(mine.length||!known){const g=document.createElement('div');g.className='grp';g.textContent='Your sounds';ch.appendChild(g)}
+  if(!known)add(tr.sylWord||cur,cur,tr.sylWord);
+  mine.forEach(m=>add(m.w||m.s,m.s,m.w));
+  const c=document.createElement('button');c.className='custom';c.textContent='Custom…';c.onclick=()=>openDefaultEditor(tr);ch.appendChild(c);
+}
+$('tsVol').oninput=e=>{T().vol=+e.target.value;updateGains();save()};
+$('tsPan').oninput=e=>{T().pan=+e.target.value;save()};
+$('tsOct').onchange=e=>{T().oct=+e.target.value;save();drawAll()};
+$('tsAssist').onchange=e=>{const tr=T();tr.assist=+e.target.value;save();drawAll();
+  const hi=tr.notes.reduce((a,n)=>n.p>a.p?n:a,tr.notes[0]||{p:72,t:0,d:1,l:null});playOne(tr,hi)};
+$('tsDone').onclick=()=>closeSheet('trackSheet');
+$('tsEdit').onclick=()=>{closeSheet('trackSheet');setView('notes');focusTrackNotes()};
+$('tsDup').onclick=()=>{pushUndo();const c=JSON.parse(JSON.stringify(T()));c.id=uid();c.name+=' copy';P.tracks.splice(selTrack+1,0,c);selTrack++;refreshAll();save();closeSheet('trackSheet')};
+$('tsDel').onclick=()=>{if(P.tracks.length<=1){toast('A song needs at least one singer');return}if(playing)pause();pushUndo();P.tracks.splice(selTrack,1);selTrack=Math.max(0,selTrack-1);selNotes.clear();refreshAll();save();closeSheet('trackSheet');toast('Singer deleted. Undo is in the Notes view.')};
+function addTrack(){pushUndo();const s=SINGERS[P.tracks.length%SINGERS.length];P.tracks.push(mkTrack(`${s.name}`,s.id,SYL_PRESETS[P.tracks.length%3]));selTrack=P.tracks.length-1;refreshAll();save();openTrackSheet()}
+
+/* ================= lyrics ================= */
+let lyMode='words',lyItems=null,lyTimer=null,lySeq=0;
+const lyNotes=()=>selNotes.size?[...selNotes].sort((a,b)=>a.t-b.t):T().notes.slice().sort((a,b)=>a.t-b.t);
+function setLyMode(m){
+  lyMode=m;$('lyWords').classList.toggle('on',m==='words');$('lySounds').classList.toggle('on',m==='sounds');
+  const notes=lyNotes();
+  if(m==='words'){
+    $('lyHint').innerHTML='Type the lyrics normally. DECtalk works out the pronunciation and splits each word into syllables, one per note in time order. Use <code>+</code> to stretch the previous syllable over another note, <code>-</code> to leave a note on the default sound, and <code>{d ey}</code> to give one note exact sounds.';
+    $('lyricText').placeholder='Daisy, Daisy, give me your answer, do';
+    $('lyricText').value=notesToWords(notes);
+  }else{
+    $('lyHint').innerHTML='One note per entry, separated by <code>/</code>. Write sounds with DECtalk’s names, like <code>d ey / z iy</code>. Long-press any note to pick sounds from a palette instead.';
+    $('lyricText').placeholder='d ey / z iy / d ey / z iy';
+    $('lyricText').value=notes.map(n=>n.l||'-').join(' / ');
+  }
+  updateLyPreview();
+}
+function soundsEntries(txt){return (txt.includes('/')?txt.split('/'):txt.split(/\s+/)).map(x=>x.trim()).filter((x,i,a)=>x||i<a.length-1)}
+function renderLyPreview(items,notes){
+  const box=$('lyPreview');box.innerHTML='';
+  const used=items.length,have=notes.length;
+  const sylls=items.filter(i=>!i.skip&&!i.hold).length;
+  const trName=T().name;
+  $('lyTarget').textContent=(selNotes.size?`Applies to the ${have} selected notes. `:`Applies to all ${have} notes in ${trName}. `)+
+    (used===have?'Every note gets a sound.':used<have?`${sylls} syllables; the last ${have-used} note${have-used>1?'s keep':' keeps'} the default sound.`:`${used-have} syllable${used-have>1?'s don’t':' doesn’t'} fit and will be left out.`);
+  let i=0;
+  while(i<items.length&&i<160){
+    const it=items[i];const span=document.createElement('span');if(i>=have)span.className='extra';
+    if(it.skip){span.innerHTML='<i>default</i>';i++}
+    else if(it.hold){span.innerHTML='<i>+ hold</i>';i++}
+    else if(it.word&&it.first){let j=i+1;const parts=[it.ph.join(' ')];while(j<items.length&&!items[j].first&&items[j].word===it.word&&!items[j].hold&&!items[j].skip){parts.push(items[j].ph.join(' '));j++}
+      const b=document.createElement('b');b.textContent=it.word;span.appendChild(b);span.appendChild(document.createTextNode(parts.join(' · ')));i=j}
+    else{span.textContent=it.ph?it.ph.join(' '):'?';i++}
+    box.appendChild(span);
+  }
+}
+function updateLyPreview(){
+  clearTimeout(lyTimer);const notes=lyNotes();const txt=$('lyricText').value;
+  if(lyMode==='sounds'){
+    lyItems=soundsEntries(txt).map(x=>x==='-'||!x?{skip:true}:{ph:tokenize(x),exact:true,first:true});
+    renderLyPreview(lyItems,notes);return}
+  const seq=++lySeq;lyItems=null;$('lyTarget').textContent='Looking up pronunciations…';
+  lyTimer=setTimeout(async()=>{
+    try{const items=await lyricsToItems(txt);if(seq!==lySeq)return;lyItems=items;renderLyPreview(items,notes)}
+    catch(e){if(seq===lySeq){$('lyTarget').textContent='The DECtalk engine didn’t answer, so pronunciations can’t be looked up right now.';setEngine(false)}}
+  },250);
+}
+$('lyricText').addEventListener('input',updateLyPreview);
+$('lyWords').onclick=()=>setLyMode('words');$('lySounds').onclick=()=>setLyMode('sounds');
+$('lyricsBtn').onclick=()=>{if(!T().notes.length){toast('Add some notes first, then attach lyrics to them');return}openSheet('lyricSheet');setLyMode(lyMode)};
+$('lyricCancel').onclick=()=>closeSheet('lyricSheet');
+$('lyricApply').onclick=async()=>{
+  const notes=lyNotes();let items=lyItems;
+  if(lyMode==='words'&&!items){try{items=await lyricsToItems($('lyricText').value)}catch(e){toast('Pronunciations couldn’t be looked up; check the DECtalk engine');return}}
+  if(!items)return;
+  pushUndo();applyItems(notes,items);
+  closeSheet('lyricSheet');drawAll();save();
+  const n=Math.min(items.length,notes.length);toast(`Lyrics applied to ${n} note${n===1?'':'s'}`);
+  prepare(notes.map(x=>noteSpec(T(),x)),'Rendering voices');
+};
+
+/* ================= per-note sound editor ================= */
+let editNote=null,editDefault=null;
+function buildPalette(){
+  const mk=(box,list)=>{box.innerHTML='';list.forEach(p=>{const b=document.createElement('button');b.innerHTML=`${p}<small>${PHONE_HELP[p]||''}</small>`;
+    b.onclick=()=>{const cur=tokenize($('nsSounds').value);cur.push(p);$('nsSounds').value=cur.join(' ');nsChanged();};box.appendChild(b)})};
+  mk($('nsPalV'),['aa','ae','ah','ao','aw','ay','eh','ey','ih','iy','ow','oy','uh','uw','yu','rr','ar','er','ir','or','ur','el','en']);
+  mk($('nsPalC'),['b','ch','d','dh','f','g','hx','jh','k','l','m','n','nx','p','r','s','sh','t','th','v','w','yx','z','zh','q','dx']);
+}
+function renderNsChips(){
+  const {tokens,bad}=tokenizeReport($('nsSounds').value);const box=$('nsChips');box.innerHTML='';
+  tokens.forEach(t=>{const s=document.createElement('span');s.textContent=t;if(NUCLEI.includes(t))s.className='nuc';box.appendChild(s)});
+  bad.forEach(t=>{const s=document.createElement('span');s.className='bad';s.textContent=t;box.appendChild(s)});
+  const tr=T();
+  $('nsMsg').textContent=bad.length?`DECtalk has no sound for “${bad.join('')}”, so it’s skipped. Pick from the palette below.`
+    :!tokens.length?(editDefault?'Empty: notes without lyrics will sing “laa”.':`Empty: this note sings the track’s default, “${tr.syl}”.`)
+    :!tokens.some(t=>NUCLEI.includes(t))?'No vowel yet: add one so the note has something to hold.'
+    :'Highlighted sounds are vowels; the first one holds the note.';
+}
+function nsChanged(){
+  const n=editNote;if(!n)return;
+  n.l=normSounds($('nsSounds').value);n.h=false;
+  if(n.w&&n.w!=='–'&&$('nsWord').value.trim()!==n.w)n.w=null;
+  syncDefault();renderNsChips();drawNotes();drawSong();save();
+}
+/* in default-sound mode the editor works on a stand-in note; its sounds become the singer's default */
+function syncDefault(){if(!editDefault)return;editDefault.syl=editNote.l||'laa';editDefault.sylWord=editNote.w||null}
+function openDefaultEditor(tr){
+  if(!$('nsPalV').children.length)buildPalette();
+  pushUndo();editDefault=tr;
+  editNote={t:0,d:1,p:previewNote(tr).p,l:tr.syl,w:tr.sylWord||null};
+  closeSheet('trackSheet');fillNoteEditor();openSheet('noteSheet');
+}
+function noteOrder(){return T().notes.slice().sort((a,b)=>a.t-b.t||a.p-b.p)}
+function fillNoteEditor(){
+  const n=editNote,tr=T(),list=noteOrder(),i=list.indexOf(n);
+  $('nsPrev').hidden=$('nsNext').hidden=!!editDefault;
+  $('nsDefault').textContent=editDefault?'Reset to “laa”':'Use default';
+  if(editDefault){
+    const uses=tr.notes.filter(x=>!x.l||x.l==='-').length;
+    $('nsTitle').textContent=`Default sound for ${tr.name}`;
+    $('nsSub').textContent=`Sung by every note without lyrics (${uses} of ${tr.notes.length} now). Type sounds, look up a word, or tap the palette.`;
+    $('nsWord').value=n.w||'';$('nsSounds').value=n.l?tokenize(n.l).join(' '):'';renderNsChips();return;
+  }
+  $('nsTitle').textContent=`${nn(n.p)} note`;
+  const beats=+n.d.toFixed(2);
+  $('nsSub').textContent=`Note ${i+1} of ${list.length} in ${tr.name} · ${beats} beat${beats===1?'':'s'}`+(n.w&&n.w!=='–'?` · from “${n.w}”`:n.w==='–'?' · continues the previous word':'');
+  $('nsWord').value=n.w&&n.w!=='–'?n.w:'';
+  $('nsSounds').value=n.l&&n.l!=='-'?tokenize(n.l).join(' '):'';
+  $('nsPrev').disabled=i<=0;$('nsNext').disabled=i>=list.length-1;
+  renderNsChips();
+}
+function openNoteEditor(n){
+  if(!$('nsPalV').children.length)buildPalette();
+  editDefault=null;
+  pushUndo();editNote=n;selNotes.clear();selNotes.add(n);
+  fillNoteEditor();drawNotes();openSheet('noteSheet');
+}
+function stepNote(d){
+  const list=noteOrder(),i=list.indexOf(editNote)+d;if(i<0||i>=list.length)return;
+  editNote=list[i];selNotes.clear();selNotes.add(editNote);
+  const w=$('noteWrap').clientWidth-KEYW,x=editNote.t*notePPB;if(x<noteX||x>noteX+w*0.8)noteX=Math.max(0,x-w*0.3);
+  const h=$('noteWrap').clientHeight*0.35,y=(HI-editNote.p)*ROWH;if(y<noteY||y>noteY+h)noteY=Math.max(0,y-h/2);
+  fillNoteEditor();drawNotes();playOne(T(),editNote);
+}
+async function lookupWord(){
+  const raw=$('nsWord').value.trim(),w=cleanWord(raw);if(!w||!editNote)return;
+  try{
+    const sy=(await wordsToSyllables([w]))[0]||[];
+    if(!sy.length){toast('DECtalk couldn’t pronounce that');return}
+    editNote.l=sy.flat().join(' ');editNote.w=raw.replace(/^[^\w']+|[^\w']+$/g,'');editNote.h=false;
+    $('nsSounds').value=editNote.l;syncDefault();renderNsChips();drawNotes();drawSong();save();playOne(T(),editNote);
+    if(sy.length>1)$('nsMsg').textContent=`“${editNote.w}” has ${sy.length} syllables, all sung on ${editDefault?'each default note':'this note'}.`+(editDefault?'':' To spread it across notes, use Lyrics.');
+  }catch(e){toast('Pronunciations couldn’t be looked up; check the DECtalk engine');setEngine(false)}
+}
+$('nsSounds').addEventListener('input',nsChanged);
+$('nsWord').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lookupWord()}});
+$('nsLookup').onclick=lookupWord;
+$('nsBack').onclick=()=>{const t=tokenize($('nsSounds').value);t.pop();$('nsSounds').value=t.join(' ');nsChanged()};
+$('nsPlay').onclick=()=>editNote&&playOne(T(),editNote);
+$('nsPrev').onclick=()=>stepNote(-1);$('nsNext').onclick=()=>stepNote(1);
+$('nsDefault').onclick=()=>{if(!editNote)return;editNote.l=editDefault?'l aa':null;editNote.w=null;editNote.h=false;syncDefault();fillNoteEditor();drawAll();save();playOne(T(),editNote)};
+$('nsDone').onclick=()=>{closeSheet('noteSheet');
+  if(editDefault){const tr=editDefault;rememberSound(tr.syl,tr.sylWord);editDefault=null;editNote=null;drawAll();openTrackSheet();return}
+  editNote=null};
+$('labelMode').onclick=()=>{labelMode=labelMode==='words'?'sounds':'words';try{localStorage.setItem('dtstudio.labels',labelMode)}catch(e){}
+  $('labelMode').textContent=labelMode==='words'?'Show sounds':'Show words';drawNotes()};
+$('labelMode').textContent=labelMode==='words'?'Show sounds':'Show words';
+
+/* ================= DECtalk text export ================= */
+/* Plain DECtalk singing text: [:phoneme on][:np][d<45>ey<355,22>_<200>...]. Measured on DECtalk:
+   with a length on the vowel only, consonants add time and an 8-note line ran 16% slow; giving every
+   sound its own length keeps it within a few ms. Rests (_<ms>) are exact. */
+const STOPS=new Set(['b','d','g','k','p','t','q','dx','df','tx']),FRIC=new Set(['f','v','th','dh','s','z','sh','zh','hx','ch','jh']);
+const consMs=p=>STOPS.has(p)?45:FRIC.has(p)?75:55;
+/* how long DECtalk makes each consonant when no length is written (measured, ms) */
+const CONS_DEFAULT={b:70,ch:157,d:64,dh:69,dx:43,df:43,f:85,g:76,hx:47,jh:106,k:82,l:72,ll:71,lx:71,m:54,n:46,nx:58,p:75,q:8,r:2,rx:2,s:92,sh:115,t:70,tx:43,th:83,v:65,w:29,yx:40,z:72,zh:82};
+/* small offsets DECtalk adds in real songs, measured over a 300-note test song: each rest and each note */
+const REST_EXTRA=2.2,NOTE_EXTRA=0.65;
+/* consonants next to another consonant come out shorter than on their own; fitted on the test song */
+const CLUSTER_K=0.61;
+/* DECtalk sings MIDI 36–72 as pitch numbers 1–37; text can't pitch-shift, so other notes move by octaves */
+const decPitch=m=>{let p=m-35;while(p<1)p+=12;while(p>37)p-=12;return p};
+/* DECtalk rounds every sound to whole 6.4 ms frames: frames = floor((ms + 4) / 6.4), checked against
+   DECtalk at every length from 20 to 200 ms. Rounding mostly goes up, so naive text drifts later and later.
+   Exact mode keeps a running clock and writes each length so the rounded result lands on the score. */
+const FRAME=6.4,writtenFor=fr=>Math.ceil(FRAME*fr-4);
+/* ...and each frame actually lasts 71 samples at DECtalk's 11,025 Hz output (6.44 ms, not 6.4),
+   which would otherwise add 0.6% drift: over a second across a three-minute song */
+const FRAME_REAL=71/11.025;
+/* a note's sounds with planned lengths (summing to ms); vowels carry the pitch */
+function notePhones(tr,n,ms,consLen){consLen=consLen||consMs;
+  const sylStr=(n.l&&n.l!=='-')?n.l:tr.syl;
+  let tk=tokenize(sylStr);if(!tk.length)tk=['aa'];
+  const pn=decPitch(n.p+12*(tr.oct||0));
+  const nuc=[];tk.forEach((t,i)=>{if(NUCLEI.includes(t))nuc.push(i)});
+  const vi=nuc.length?nuc[0]:tk.length-1,extraN=Math.max(0,nuc.length-1);
+  const extra=extraN?Math.round(clamp(ms*0.25/extraN,60,140)):0;
+  const cons=tk.map((t,i)=>NUCLEI.includes(t)||i===vi?0:consLen(t));
+  let csum=cons.reduce((a,b)=>a+b,0);const cap=Math.max(0,ms*0.4);
+  if(csum>cap&&consLen===consMs){const k=cap/csum;for(let i=0;i<cons.length;i++)if(cons[i])cons[i]=Math.max(15,Math.round(cons[i]*k));csum=cons.reduce((a,b)=>a+b,0)}
+  const main=Math.max(30,ms-csum-extra*extraN);
+  return tk.map((t,i)=>i===vi?{p:t,d:main,pn}:NUCLEI.includes(t)&&i>vi?{p:t,d:extra,pn}:{p:t,d:cons[i],pn:null});
+}
+function serializeItems(items,mode){
+  /* a running clock of where DECtalk will really be; each written length is chosen so the rounded
+     result lands on the score. Compact leaves consonants unwritten and counts DECtalk's own lengths. */
+  let clock=0,target=0;
+  const timed=(d,minFr)=>{target+=d;const fr=Math.max(minFr,Math.round((target-clock)/FRAME_REAL));clock+=fr*FRAME_REAL;return writtenFor(fr)};
+  for(const it of items){
+    if(it.rest){it.s=`_<${timed(it.ms,1)}>`;clock+=REST_EXTRA;continue}
+    if(mode==='exact'){
+      it.s=notePhones(it.tr,it.n,it.ms).map(x=>x.pn!=null?`${x.p}<${timed(x.d,3)},${x.pn}>`:`${x.p}<${timed(x.d,2)}>`).join('');
+    }else{
+      /* sounds run together only where DECtalk reads them back the same way
+         (e.g. "s"+"hx" would read as "shx", which DECtalk can't say) */
+      let out='',prev=null;
+      const phs=notePhones(it.tr,it.n,it.ms,c=>CONS_DEFAULT[c]||60);
+      const isC=x=>x&&x.pn==null;
+      phs.forEach((x,i)=>{if(isC(x)&&(isC(phs[i-1])||isC(phs[i+1])))x.d=Math.round(x.d*CLUSTER_K)});
+      /* the main vowel fills whatever is left of the note once DECtalk's own consonant lengths are counted */
+      const noteEnd=target+it.ms,vi=phs.findIndex(x=>x.pn!=null);
+      let after=0;phs.forEach((x,i)=>{if(i>vi)after+=x.d});
+      for(let i=0;i<phs.length;i++){
+        const x=phs[i];let part;
+        if(x.pn==null){part=x.p;clock+=x.d}
+        else{let fr;
+          if(i===vi){fr=Math.max(3,Math.round((noteEnd-after-clock)/FRAME_REAL));after=Math.max(0,after)}
+          else{fr=Math.max(3,Math.round(x.d/FRAME_REAL));after-=x.d}
+          clock+=fr*FRAME_REAL;part=`${x.p}<${writtenFor(fr)},${x.pn}>`}
+        if(i>vi&&x.pn==null)after-=x.d;
+        if(prev!==null&&!/>$/.test(out)){const a=tokenize(prev+x.p);if(!(a.length===2&&a[0]===prev&&a[1]===x.p))out+=' '}
+        out+=part;prev=x.p;
+      }
+      target=noteEnd;
+      it.s=out;
+    }
+    clock+=NOTE_EXTRA;
+  }
+  return items;
+}
+/* one singer's line as items: notes and rests in time order, chords reduced to one note */
+function exportItems(tr,opts){
+  const spb=secPerBeat()*1000;
+  const ns=tr.notes.slice().sort((a,b)=>a.t-b.t||(opts.chord==='low'?a.p-b.p:b.p-a.p));
+  const kept=[];for(const n of ns){const last=kept[kept.length-1];if(last&&Math.round(n.t*spb)<=Math.round(last.t*spb)+15)continue;kept.push(n)}
+  const items=[];let cursor=null;
+  kept.forEach((n,i)=>{
+    const st=Math.round(n.t*spb);let en=Math.round((n.t+n.d)*spb);
+    const next=kept[i+1];if(next)en=Math.min(en,Math.round(next.t*spb));
+    if(cursor!==null){const gap=st-cursor;
+      if(gap>=20){for(let g=gap;g>0;g-=8000)items.push({rest:true,ms:Math.min(g,8000)})}
+      else if(gap>0&&items.length&&!items[items.length-1].rest)items[items.length-1].ms+=gap;}
+    items.push({tr,n,ms:Math.max(40,en-st)});cursor=Math.max(st+40,en);
+  });
+  return serializeItems(items,opts.timing);
+}
+function exportMessages(tr,opts){
+  const items=exportItems(tr,opts);
+  const head=(opts.prefix||'')+(opts.setup?`[:phoneme on][:${tr.voice}]`:'');
+  /* a note ending in an unwritten consonant gets a space before the next one, so sounds can't merge across notes */
+  const wrap=list=>head+'['+list.map((it,k)=>(k&&!/>$/.test(list[k-1].s)?' ':'')+it.s).join('')+']';
+  const trim=list=>{while(list.length&&list[0].rest)list.shift();while(list.length&&list[list.length-1].rest)list.pop();return list};
+  if(!items.length)return {msgs:[],items};
+  if(!opts.limit)return {msgs:[wrap(trim(items.slice()))],items};
+  const need=head.length+3+Math.max(...items.map(i=>i.s.length));
+  if(need>opts.limit)return {error:`A single note needs ${need} characters with these settings, so the limit has to be at least that.`,items};
+  const msgs=[];let i=0;
+  while(i<items.length){
+    let j=i,len=head.length+2;
+    while(j<items.length&&len+items[j].s.length+(j>i&&!/>$/.test(items[j-1].s)?1:0)<=opts.limit){len+=items[j].s.length+(j>i&&!/>$/.test(items[j-1].s)?1:0);j++}
+    if(j<items.length){ /* prefer ending a message at a rest, as long as it stays at least 60% full */
+      for(let k=j-1;k>i;k--){if(items[k].rest){if(k-i>=(j-i)*0.6)j=k+1;break}}}
+    const part=trim(items.slice(i,j));if(part.length)msgs.push(wrap(part));
+    i=j;
+  }
+  return {msgs,items};
+}
+function exportOpts(){
+  const lim=$('xLimit').value==='custom'?Math.max(40,+$('xCustom').value||0):+$('xLimit').value;
+  return {limit:lim,prefix:$('xPrefix').value,setup:$('xSetup').checked,timing:$('xTiming').value,chord:$('xChord').value};
+}
+let xBlocks=[];
+function copyText(text,label){
+  const done=()=>toast(label?`Copied ${label}`:'Copied');
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+    let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();ok?done():toast('Copying isn’t allowed here: select the text and copy it yourself')};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,fallback);else fallback();
+}
+function renderExport(){
+  const opts=exportOpts(),which=$('xTrack').value;
+  const tracks=which==='all'?P.tracks.filter(t=>t.notes.length):[P.tracks[+which]].filter(Boolean);
+  $('xCustom').hidden=$('xCustomLbl').hidden=$('xLimit').value!=='custom';
+  const box=$('xMsgs');box.innerHTML='';xBlocks=[];let total=0,count=0,warn=[];
+  for(const tr of tracks){
+    const r=exportMessages(tr,opts);
+    if(tracks.length>1){const h=document.createElement('h3');h.textContent=`${tr.name} (${singer(tr.voice).name})`;box.appendChild(h)}
+    if(r.error){const p=document.createElement('p');p.className='hint';p.textContent=r.error;box.appendChild(p);continue}
+    if(!r.msgs.length){const p=document.createElement('p');p.className='hint';p.textContent='This singer has no notes yet.';box.appendChild(p);continue}
+    const chordsDropped=tr.notes.length-r.items.filter(i=>!i.rest).length;
+    const folded=tr.notes.filter(n=>{const m=n.p+12*(tr.oct||0);return m<36||m>72}).length;
+    if(chordsDropped)warn.push(`${tr.name}: ${chordsDropped} chord note${chordsDropped>1?'s':''} left out`);
+    if(folded)warn.push(`${tr.name}: ${folded} note${folded>1?'s':''} outside C2–C5 moved by octaves`);
+    xBlocks.push({tr,msgs:r.msgs});
+    r.msgs.forEach((m,k)=>{
+      total+=m.length;count++;
+      const el=document.createElement('div');el.className='msg';
+      const hd=document.createElement('header');
+      hd.innerHTML=`<b>${r.msgs.length>1?`Message ${k+1} of ${r.msgs.length}`:'All in one'}</b><span>${m.length.toLocaleString()} characters</span><span class="spacer"></span>`;
+      const b=document.createElement('button');b.textContent='Copy';b.onclick=()=>copyText(m,r.msgs.length>1?`message ${k+1}`:'');hd.appendChild(b);
+      const ta=document.createElement('textarea');ta.readOnly=true;ta.value=m;ta.onfocus=()=>ta.select();
+      el.appendChild(hd);el.appendChild(ta);box.appendChild(el);
+    });
+  }
+  const spb=secPerBeat();
+  $('xSummary').textContent=count?`${count} message${count>1?'s':''}, ${total.toLocaleString()} characters.`+(warn.length?' '+warn.join('; ')+'. ':' ')+'Volume, pan and Range assist can’t be written as DECtalk text.':'';
+}
+function openExportText(){
+  const sel=$('xTrack');sel.innerHTML='';
+  P.tracks.forEach((t,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${t.name} (${singer(t.voice).name})`;sel.appendChild(o)});
+  if(P.tracks.length>1){const o=document.createElement('option');o.value='all';o.textContent='Every singer, one block each';sel.appendChild(o)}
+  sel.value=String(selTrack);
+  try{const saved=JSON.parse(localStorage.getItem('dtstudio.textopts')||'{}');
+    for(const [k,v] of Object.entries(saved)){const el=$(k);if(!el)continue;if(el.type==='checkbox')el.checked=v;else el.value=v}}catch(e){}
+  renderExport();openSheet('textSheet');
+}
+['xTrack','xLimit','xCustom','xPrefix','xTiming','xChord','xSetup'].forEach(id=>{
+  $(id).addEventListener(id==='xPrefix'||id==='xCustom'?'input':'change',()=>{
+    try{const o={};['xLimit','xCustom','xPrefix','xTiming','xChord','xSetup'].forEach(k=>{const el=$(k);o[k]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('dtstudio.textopts',JSON.stringify(o))}catch(e){}
+    renderExport()})});
+$('xCopyAll').onclick=()=>{const all=xBlocks.flatMap(b=>b.msgs).join('\n\n');if(all)copyText(all,'everything')};
+$('xSave').onclick=()=>{
+  const txt=xBlocks.map(b=>(xBlocks.length>1?`# ${b.tr.name} (${singer(b.tr.voice).name})\n`:'')+b.msgs.join('\n\n')).join('\n\n\n');
+  if(txt)saveBlob(new TextEncoder().encode(txt+'\n'),(P.name||'song')+' - DECtalk.txt','text/plain')};
+$('xDone').onclick=()=>{stopTextPreview();closeSheet('textSheet')};
+/* hear exactly what the text sings: the whole line rendered by DECtalk as one piece */
+let xSrc=null;
+function stopTextPreview(){if(xSrc){try{xSrc.stop()}catch(e){}xSrc=null}$('xPlay').textContent='▶ Hear the text'}
+$('xPlay').onclick=async()=>{
+  if(xSrc){stopTextPreview();return}
+  const b=xBlocks[0];if(!b)return;
+  const opts={...exportOpts(),limit:0,prefix:'',setup:true};
+  const text=exportMessages(b.tr,opts).msgs[0];if(!text)return;
+  if(playing)pause();
+  busy('Rendering the text…',0.5);
+  try{const e=await fetchVoice({key:'text:'+text,text});const c=ensureCtx();
+    const src=c.createBufferSource();src.buffer=e.buf;const g=c.createGain();g.gain.value=b.tr.vol||0.9;src.connect(g);g.connect(master);src.start();
+    xSrc=src;$('xPlay').textContent='■ Stop';src.onended=()=>{if(xSrc===src)stopTextPreview()};
+  }catch(err){toast('DECtalk couldn’t sing that text')}
+  finally{busy(null)}
+};
+
+/* ================= splitting a part ================= */
+/* most notes sounding at once */
+function maxPoly(notes){const ev=[];for(const n of notes){ev.push([n.t,1],[n.t+n.d-1e-6,-1])}ev.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);let c=0,m=0;for(const [,d] of ev){c+=d;m=Math.max(m,c)}return m}
+const onsetGroups=notes=>{const ns=notes.slice().sort((a,b)=>a.t-b.t||a.p-b.p),g=[];for(const n of ns){const last=g[g.length-1];if(last&&n.t-last.t<0.02)last.notes.push(n);else g.push({t:n.t,notes:[n]})}return g};
+/* Left/right hand: follows each hand through the piece by continuity. For every chord it tries each way of
+   dividing it (low notes left, high notes right) and scores each note by its distance to the nearest note
+   that hand played in the last two beats, so a left hand spanning bass and chord stays together.
+   It penalises a hand striking notes more than a tenth apart, and the hands crossing, counting only notes
+   struck together (held notes may be sustained by the pedal, so they don't limit the stretch). */
+function splitHands(notes){
+  const ps=notes.map(n=>n.p).sort((a,b)=>a-b);if(!ps.length)return [[],[]];
+  let L=ps[Math.floor(ps.length*0.25)],R=ps[Math.floor(ps.length*0.75)];if(R-L<7){L=Math.min(L,R-6);R=L+12}
+  const lh=[],rh=[];let recL=[],recR=[];
+  const near=(rec,p,center)=>rec.length?Math.min(...rec.map(r=>Math.abs(r.p-p)))+0.15*Math.abs(p-center):Math.abs(p-center);
+  for(const g of onsetGroups(notes)){
+    recL=recL.filter(n=>n.t+n.d>g.t-2);recR=recR.filter(n=>n.t+n.d>g.t-2);
+    const heldL=recL.filter(n=>n.t+n.d>g.t+0.02),heldR=recR.filter(n=>n.t+n.d>g.t+0.02);
+    const ns=g.notes.slice().sort((a,b)=>a.p-b.p);let best=null;
+    for(let k=0;k<=ns.length;k++){
+      const lo=ns.slice(0,k),hi=ns.slice(k);let cost=0;
+      for(const n of lo)cost+=near(recL,n.p,L);for(const n of hi)cost+=near(recR,n.p,R);
+      const span=arr=>arr.length>1?Math.max(...arr)-Math.min(...arr):0;
+      const sl=span(lo.map(n=>n.p)),sr=span(hi.map(n=>n.p));
+      if(sl>16)cost+=40*(sl-16);if(sr>16)cost+=40*(sr-16);
+      if(lo.length&&hi.length&&lo[lo.length-1].p>=hi[0].p)cost+=100;
+      if(lo.length+heldL.length>5)cost+=60;if(hi.length+heldR.length>5)cost+=60;
+      if(!best||cost<best.cost)best={cost,lo,hi};
+    }
+    lh.push(...best.lo);rh.push(...best.hi);recL.push(...best.lo);recR.push(...best.hi);
+    if(best.lo.length)L=L*0.8+0.2*(best.lo.reduce((a,n)=>a+n.p,0)/best.lo.length);
+    if(best.hi.length)R=R*0.8+0.2*(best.hi.reduce((a,n)=>a+n.p,0)/best.hi.length);
+  }
+  return [rh,lh];
+}
+/* Single-note lines: each note joins the line that is free at that moment and closest in pitch,
+   with lines kept in order (top stays on top); a new line opens when every line is busy. */
+function splitLines(notes,maxLines){
+  const lines=[];
+  for(const g of onsetGroups(notes)){
+    const ns=g.notes.slice().sort((a,b)=>b.p-a.p);
+    for(const n of ns){
+      const free=lines.filter(l=>l.end<=n.t+0.02&&!l.taken);
+      let pick=null,bestCost=Infinity;
+      for(const l of free){const c=Math.abs(l.last-n.p)+(l.rank*0.01);if(c<bestCost){bestCost=c;pick=l}}
+      if(!pick&&(!maxLines||lines.length<maxLines)){pick={notes:[],end:0,last:n.p,rank:lines.length};lines.push(pick)}
+      if(!pick){pick=lines.reduce((a,l)=>!l.taken&&(!a||l.end<a.end)?l:a,null)||lines[0];
+        const prev=pick.notes[pick.notes.length-1];if(prev&&prev.t+prev.d>n.t)prev.d=Math.max(0.05,+(n.t-prev.t).toFixed(4))}
+      pick.notes.push(n);pick.end=n.t+n.d;pick.last=n.p;pick.taken=true;
+    }
+    lines.forEach(l=>l.taken=false);
+  }
+  lines.sort((a,b)=>b.notes.reduce((s,n)=>s+n.p,0)/b.notes.length-a.notes.reduce((s,n)=>s+n.p,0)/a.notes.length);
+  return lines.map(l=>l.notes);
+}
+let spMode='hands';
+const CHOIR=['nk','nb','nu','np','nd','nh'];
+function splitPlan(){
+  const tr=T(),notes=tr.notes;
+  if(spMode==='hands'){const [rh,lh]=splitHands(notes);const low=tr.voice==='nh'?'np':'nh';
+    return [{name:tr.name+' · right hand',voice:tr.voice,pan:clamp((tr.pan||0)+0.25,-1,1),notes:rh},{name:tr.name+' · left hand',voice:low,pan:clamp((tr.pan||0)-0.25,-1,1),notes:lh}]}
+  if(spMode==='note'){const at=+$('spNoteSel').value;
+    return [{name:`${tr.name} · ${nn(at)} and up`,voice:tr.voice,pan:tr.pan,notes:notes.filter(n=>n.p>=at)},{name:`${tr.name} · below ${nn(at)}`,voice:tr.voice==='nh'?'np':'nh',pan:tr.pan,notes:notes.filter(n=>n.p<at)}]}
+  const lines=splitLines(notes,+$('spLinesSel').value),k=lines.length;
+  return lines.map((ln,i)=>({name:`${tr.name} · line ${i+1}${k>1?(i===0?' (top)':i===k-1?' (bottom)':''):''}`,
+    voice:k===1?tr.voice:CHOIR[Math.round(i*(CHOIR.length-1)/Math.max(1,k-1))],pan:tr.pan,notes:ln}));
+}
+function renderSplit(){
+  $('spHands').classList.toggle('on',spMode==='hands');$('spNote').classList.toggle('on',spMode==='note');$('spLines').classList.toggle('on',spMode==='lines');
+  $('spNoteRow').hidden=spMode!=='note';$('spLinesRow').hidden=spMode!=='lines';
+  $('spHint').textContent=spMode==='hands'?'Follows each hand through the piece, so it copes with hands that cross middle C. A hand can still play chords; use single-note lines if every part should sing one note at a time.'
+    :spMode==='note'?'Everything at or above the chosen note goes to one singer, everything below to another.'
+    :'Breaks chords into separate melodic lines (top, middle, bottom), so each singer sings one note at a time, which is how DECtalk sings and what the text export needs.';
+  const box=$('spParts');box.innerHTML='';
+  for(const p of splitPlan()){const d=document.createElement('div');d.style.setProperty('--c',singer(p.voice).c);
+    const b=document.createElement('b');b.textContent=p.name;const sp=document.createElement('span');const m=maxPoly(p.notes);
+    sp.textContent=`${singer(p.voice).name} · ${p.notes.length} note${p.notes.length===1?'':'s'}`+(p.notes.length?` · ${m===1?'one note at a time':`up to ${m} at once`}`:'');
+    d.appendChild(b);d.appendChild(sp);box.appendChild(d)}
+}
+function openSplit(){
+  const tr=T();if(!tr.notes.length){toast('This singer has no notes to split');return}
+  $('spTitle').textContent=`Split “${tr.name}”`;
+  const sel=$('spNoteSel');if(!sel.options.length)for(let p=36;p<=84;p++){const o=document.createElement('option');o.value=p;o.textContent=nn(p);sel.appendChild(o)}
+  sel.value=60;closeSheet('trackSheet');renderSplit();openSheet('splitSheet');
+}
+$('tsSplit').onclick=openSplit;
+$('spHands').onclick=()=>{spMode='hands';renderSplit()};$('spNote').onclick=()=>{spMode='note';renderSplit()};$('spLines').onclick=()=>{spMode='lines';renderSplit()};
+$('spNoteSel').onchange=renderSplit;$('spLinesSel').onchange=renderSplit;
+$('spCancel').onclick=()=>closeSheet('splitSheet');
+$('spGo').onclick=()=>{
+  const tr=T(),parts=splitPlan().filter(p=>p.notes.length);if(!parts.length)return;
+  if(playing)pause();pushUndo();
+  const made=parts.map(p=>({...JSON.parse(JSON.stringify(tr)),id:uid(),name:p.name,voice:p.voice,pan:p.pan,solo:false,
+    notes:p.notes.map(n=>({...n})).sort((a,b)=>a.t-b.t||a.p-b.p)}));
+  P.tracks.splice(selTrack,$('spKeep').checked?0:1,...made);
+  if($('spKeep').checked)selTrack+=0;
+  selNotes.clear();refreshAll();save();closeSheet('splitSheet');
+  toast(`Split into ${made.length} singers. Undo is in the Notes view.`);
+};
+
+/* ================= menu ================= */
+$('menuBtn').onclick=()=>openSheet('menuSheet');
+$('menuSheet').addEventListener('click',e=>{const a=e.target.dataset&&e.target.dataset.act;if(!a)return;closeSheet('menuSheet');
+  if(a==='importMidi')$('midiFile').click();
+  else if(a==='addTrack')addTrack();
+  else if(a==='exportWav')exportWav();
+  else if(a==='exportText')openExportText();
+  else if(a==='saveProject')saveBlob(new TextEncoder().encode(JSON.stringify(P,null,1)),(P.name||'song')+'.dtstudio.json','application/json');
+  else if(a==='openProject')$('projFile').click();
+  else if(a==='demo'){if(playing)pause();pushUndo();P=demoSong();afterLoad();toast('Loaded Daisy Bell')}
+  else if(a==='newSong'){if(playing)pause();pushUndo();P=newProject();afterLoad();toast('New song. Undo is in the Notes view.')}
+  else if(a==='clearCache'){bufCache.clear();toast('Voice cache cleared')}});
+$('midiFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(playing)pause();importMidi(await f.arrayBuffer(),f.name)};
+$('projFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.tracks)throw 0;if(playing)pause();pushUndo();P=p;afterLoad();toast('Project opened')}catch(_){toast('That file isn’t a DECtalk Studio project')}};
+function afterLoad(){selTrack=0;selNotes.clear();posBeat=0;songX=0;noteX=0;$('bpm').value=P.bpm;refreshAll();save()}
+
+/* ================= wiring ================= */
+let view='song';
+function setView(v){view=v;$('songView').classList.toggle('show',v==='song');$('notesView').classList.toggle('show',v==='notes');$('tabSong').classList.toggle('on',v==='song');$('tabNotes').classList.toggle('on',v==='notes');refreshPick();drawAll()}
+$('tabSong').onclick=()=>setView('song');
+$('tabNotes').onclick=()=>{setView('notes');focusTrackNotes()};
+$('play').onclick=play;$('stop').onclick=stop;
+$('bpm').onchange=e=>{const v=Math.max(30,Math.min(300,+e.target.value||120));e.target.value=v;if(playing)pause();P.bpm=v;save();drawAll()};
+$('undo').onclick=undo;$('delNotes').onclick=delSel;
+$('selAll').onclick=()=>{selNotes=new Set(T().notes);drawNotes()};
+$('zoomIn').onclick=()=>{notePPB=Math.min(400,notePPB*1.3);drawNotes()};
+$('zoomOut').onclick=()=>{notePPB=Math.max(12,notePPB/1.3);drawNotes()};
+$('snap').onchange=drawNotes;
+/* Part chooses which part you're editing; Singer chooses who sings it (lyrics stay with the notes) */
+function refreshPick(){
+  const s=$('trackPick');s.innerHTML='';P.tracks.forEach((t,i)=>{const o=document.createElement('option');o.value=i;o.textContent=t.name;s.appendChild(o)});s.value=selTrack;
+  const v=$('voicePick');if(!v.options.length)SINGERS.forEach(sg=>{const o=document.createElement('option');o.value=sg.id;o.textContent=sg.name;v.appendChild(o)});
+  if(T()){v.value=T().voice;v.style.setProperty('--vc',singer(T().voice).c)}
+}
+$('trackPick').onchange=e=>{selTrack=+e.target.value;selNotes.clear();refreshPick();focusTrackNotes();renderHeads()};
+$('voicePick').onchange=e=>{const tr=T();if(!tr)return;pushUndo();tr.voice=e.target.value;refreshPick();renderHeads();drawAll();save();
+  playOne(tr,previewNote(tr));const n=tr.notes.filter(x=>x.l&&x.l!=='-').length;
+  toast(`${singer(tr.voice).name} now sings ${tr.name}`+(n?`, with all ${n} lyric${n===1?'':'s'} kept`:''))};
+function drawAll(){if(view==='song')drawSong();else drawNotes();updatePos()}
+function refreshAll(){renderHeads();refreshPick();drawAll()}
+window.addEventListener('resize',()=>drawAll());
+
+/* ================= demo ================= */
+function demoSong(){
+  const p={v:1,bpm:132,beatsPerBar:3,name:'Daisy Bell',tracks:[]};
+  const lead=mkTrack('Melody','np','laa');
+  /* sounds as DECtalk's dictionary gives them (via Lyrics → Words) */
+  const mel=[[79,3,'d ey','Daisy'],[76,3,'z iy','–'],[72,3,'d ey','Daisy'],[67,3,'z iy','–'],[69,1,'g ih v','give'],[71,1,'m iy','me'],[72,1,'yx or','your'],[69,2,'ae n','answer'],[72,1,'s rr','–'],[67,6,'d uw','do'],
+             [74,3,'ay m','I’m'],[79,3,'hx ae f','half'],[76,3,'k r ey','crazy'],[72,3,'z iy','–'],[69,1,'ao ll','all'],[71,1,'f or','for'],[72,1,'dh ah','the'],[74,2,'ll ah v','love'],[76,1,'ah v','of'],[74,6,'yx uw','you']];
+  let t=0;for(const [pp,d,l,w] of mel){lead.notes.push({t,d:d-0.1,p:pp-12,l,w});t+=d}
+  const bass=mkTrack('Bass','nh','bahm');
+  const roots=[48,48,48,48,41,48,43,43,43,43,48,48,50,43,43,43];
+  roots.forEach((r,i)=>bass.notes.push({t:i*3,d:2.6,p:r,l:null}));
+  const harm=mkTrack('Harmony','nb','uw');harm.vol=0.55;
+  const chord=[64,64,64,64,65,64,62,62,62,62,64,64,66,65,65,65];
+  chord.forEach((r,i)=>harm.notes.push({t:i*3,d:2.8,p:r,l:null}));
+  p.tracks=[lead,harm,bass];return p;
+}
+
+/* Android back button: close a sheet, then leave the Notes view */
+window.onBack=()=>{const open=[...document.querySelectorAll('.scrim.show')];if(open.length){open.forEach(o=>o.classList.remove('show'));return true}
+  if(view==='notes'){setView('song');return true}return false};
+
+/* ================= boot ================= */
+P=load()||demoSong();$('bpm').value=P.bpm;
+requestAnimationFrame(()=>{refreshAll();});
+fetch('dt/ping').then(r=>r.text()).then(t=>setEngine(t.trim()==='ok')).catch(()=>setEngine(false));
+document.addEventListener('pointerdown',()=>ensureCtx(),{once:true});
+</script>
+</body>
+</html>
