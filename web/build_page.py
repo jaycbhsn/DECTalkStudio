@@ -2,10 +2,12 @@
 """Builds DECtalk Studio for the web: one self-contained HTML file.
 Starts from the app UI (shared with the Android build), swaps the native engine for the
 WebAssembly one, embeds the engine + dictionary, and adds mouse/keyboard controls."""
-import base64, gzip, sys
+import base64, gzip, os, sys
 
-SRC = '/home/claude/app/assets/web/index.html'
-OUT = sys.argv[1] if len(sys.argv) > 1 else '/home/claude/web/dectalk-studio.html'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+P = lambda *a: os.path.join(ROOT, *a)
+SRC = P('android', 'assets', 'web', 'index.html')   # the UI shared with the Android app
+OUT = sys.argv[1] if len(sys.argv) > 1 else P('dist', 'dectalk-studio.html')
 s = open(SRC, encoding='utf-8').read()
 
 def rep(a, b, count=1):
@@ -245,10 +247,10 @@ rep("""<title>DECtalk Studio</title>""", """<title>DECtalk Studio</title>
 rep("""<p class="hint">Voices by DECtalk.""", """<p class="hint">Runs entirely in your browser; nothing is uploaded. Press <kbd>?</kbd> for shortcuts. Voices by DECtalk.""")
 
 # ---------------- embed engine + assets ----------------
-engine_js = open('/home/claude/web/engine.js', encoding='utf-8').read()
-wasm_gz = base64.b64encode(open('/home/claude/web/dectalk.wasm.gz', 'rb').read()).decode()
-dic_gz = base64.b64encode(open('/home/claude/web/dic.gz', 'rb').read()).decode()
-conf = open('/home/claude/app/assets/dectalk/DECtalk.conf', encoding='latin1').read().replace('\r', '')
+engine_js = open(P('web', 'engine.js'), encoding='utf-8').read()
+wasm_gz = base64.b64encode(open(P('build', 'dectalk.wasm.gz'), 'rb').read()).decode()
+dic_gz = base64.b64encode(open(P('build', 'dic.gz'), 'rb').read()).decode()
+conf = open(P('build', 'DECtalk.conf'), encoding='latin1').read().replace('\r', '')
 assets = ('<script>\n/* DECtalk engine (WebAssembly, gzip) and US English dictionary, embedded so the page works offline */\n'
           'const DT_ASSETS={conf:' + __import__('json').dumps(conf) + ',\nwasm:"' + wasm_gz + '",\ndic:"' + dic_gz + '"};\n</script>\n'
           '<script>\n' + engine_js + '\n</script>\n')

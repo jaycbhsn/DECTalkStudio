@@ -1,0 +1,10 @@
+# build output
+build/
+dist/
+android/build/
+android/lib/
+android/assets/dectalk/
+*.idsig
+# signing keys: never commit these
+*.keystore
+*.jks
